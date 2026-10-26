@@ -1,6 +1,7 @@
 # Isla
 
-A headless AI companion runtime. Persona, memory, emotion, rhythm and proactive messages �?as a library you can embed, not another chat app.
+A headless AI companion runtime. Persona, memory, emotion, rhythm and proactive messages —
+as a library you can embed, not another chat app.
 
 [中文文档](README.zh-CN.md) · [Design](docs/design.md) · [Companion ethics](docs/companion-ethics.md) · [Acceptable use](ACCEPTABLE_USE.md)
 
@@ -11,23 +12,27 @@ pnpm dev          # http://127.0.0.1:8790
 
 No API key needed: the demo runs offline with a deterministic provider.
 
+The framework ships no built-in character. The demo includes two example personas — a neutral
+default, plus an optional homage example selected with `ISLA_PERSONA=isla` — and a host is
+expected to supply its own `CompanionProfile`.
+
 ## Why another companion project
 
 Most open-source companion projects are a character card plus a chat front-end. Isla is the
 part underneath: the runtime that decides what the model sees, what gets remembered, how the
 reply is paced, and when the companion is allowed to reach out.
 
-- **Persona** �?a structured profile (identity, voice, examples, boundaries, daily routine),
+- **Persona** — a structured profile (identity, voice, examples, boundaries, daily routine),
   sanitized, budgeted, and always followed by non-overridable safety rules.
-- **Memory** �?versioned facts with sources, importance/confidence, time decay and MMR, so a
+- **Memory** — versioned facts with sources, importance/confidence, time decay and MMR, so a
   new fact closes the old one instead of overwriting its evidence.
-- **Emotion** �?six dimensions (pleasure, arousal, dominance, trust, bonding, energy) with
+- **Emotion** — six dimensions (pleasure, arousal, dominance, trust, bonding, energy) with
   decay and event updates; the label is a render layer, not the state.
-- **Rhythm** �?replies split into bubbles with typing delays, burst input, and a guard against
+- **Rhythm** — replies split into bubbles with typing delays, burst input, and a guard against
   ending every turn with a question.
-- **Proactivity** �?a scheduler with consent, quiet hours, a daily cap and a cooldown. Off by
+- **Proactivity** — a scheduler with consent, quiet hours, a daily cap and a cooldown. Off by
   default.
-- **Plugins** �?an event bus that isolates failures, so a bad plugin cannot break a turn.
+- **Plugins** — an event bus that isolates failures, so a bad plugin cannot break a turn.
 
 ## Packages
 
@@ -49,13 +54,13 @@ const runtime = new CompanionRuntime({
   storage: new InMemoryStorage(),
   provider: providerFromEnv(),
   profiles: {
-    get: (id) => (id === "isla" ? Promise.resolve(profile) : Promise.resolve(undefined)),
+    get: (id) => (id === "my-companion" ? Promise.resolve(profile) : Promise.resolve(undefined)),
   },
 });
 
 const turn = await runtime.handleMessage({
   ownerId: "local",
-  companionId: "isla",
+  companionId: "my-companion",
   conversationId: "main",
   channel: "platform",
   text: "今天好累",
@@ -73,7 +78,7 @@ ISLA_PROVIDER=deepseek ISLA_API_KEY=sk-... ISLA_MODEL=deepseek-chat pnpm dev
 
 ## Design principles
 
-1. The core never touches the network, the filesystem, the clock or a database �?everything
+1. The core never touches the network, the filesystem, the clock or a database — everything
    is injected, so every turn is testable.
 2. Anything that interrupts the user is off by default.
 3. Anything remembered about the user can be inspected, edited and deleted.

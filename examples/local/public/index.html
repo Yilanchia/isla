@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Isla · 陪伴核心</title>
+    <title>Isla · companion runtime</title>
     <style>
       :root {
         color-scheme: dark;
@@ -112,19 +112,19 @@
         <div class="brand">
           <div class="avatar"></div>
           <div>
-            <h1 id="name">艾拉</h1>
+            <h1 id="name">…</h1>
             <p id="identity">正在醒来…</p>
           </div>
         </div>
-        <h2>此刻</h2>
+        <h2>情绪</h2>
         <div class="emotion" id="emotion"></div>
-        <h2>她记得的事</h2>
+        <h2>记忆</h2>
         <div class="memories" id="memories"></div>
       </aside>
       <main>
         <header>
           <span class="dot"></span>
-          <span>艾拉</span>
+          <span id="header-name">Companion</span>
           <span class="model" id="model"></span>
         </header>
         <div id="messages"></div>
@@ -215,7 +215,7 @@
           item.append(el("span", "type", memory.type));
           item.append(el("span", "", memory.content));
           const remove = el("button", "", "×");
-          remove.title = "让她忘掉这件事";
+          remove.title = "删除这条记忆";
           remove.addEventListener("click", async () => {
             await fetch(`/v1/memories/${encodeURIComponent(memory.id)}`, { method: "DELETE" });
             await loadState();
@@ -230,7 +230,8 @@
           fetch("/v1/state").then((response) => response.json()),
           fetch("/v1/messages").then((response) => response.json()),
         ]);
-        $("name").textContent = state.companion?.name ?? "艾拉";
+        $("name").textContent = state.companion?.name ?? "Companion";
+        $("header-name").textContent = state.companion?.name ?? "Companion";
         $("identity").textContent = state.companion?.identity ?? "";
         $("model").textContent = state.provider ?? "";
         renderEmotion(state.emotion);

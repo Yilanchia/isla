@@ -1,6 +1,8 @@
-# Isla（艾拉）· 陪伴核心
+# Isla · 陪伴核心
 
 一个不绑定 UI 的 AI 陪伴运行时：人格、记忆、情绪、回复节奏、主动消息，做成可以嵌进任何程序的库，而不是又一个聊天 App。
+
+> Isla 是框架名，**不内置任何角色**。`examples/local` 里附带两个示例人设：默认是中性占位的「阿澄」，`ISLA_PERSONA=isla` 可以切到另一个致敬示例。它们只是演示，宿主应该换成自己的 `CompanionProfile`。
 
 [English](README.md) · [设计文档](docs/design.md) · [陪伴伦理](docs/companion-ethics.md) · [可接受使用](ACCEPTABLE_USE.md)
 
@@ -134,14 +136,14 @@ const runtime = new CompanionRuntime({
   storage: new InMemoryStorage(),   // 或 openSqliteStorage({ path })
   provider: providerFromEnv(),
   profiles: {
-    get: (id) => (id === "isla" ? Promise.resolve(profile) : Promise.resolve(undefined)),
+    get: (id) => (id === "my-companion" ? Promise.resolve(profile) : Promise.resolve(undefined)),
   },
   turnTimeoutMs: 60_000,
 });
 
 const turn = await runtime.handleMessage({
   ownerId: "local",
-  companionId: "isla",
+  companionId: "my-companion",
   conversationId: "main",
   channel: "platform",
   text: ["在吗", "今天好累"],          // 连发两条，一起回应

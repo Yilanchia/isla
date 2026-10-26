@@ -149,7 +149,7 @@ describe("OpenAICompatibleProvider", () => {
       );
 
       const summary = await provider.summarize({
-        companionName: "小满",
+        companionName: "Companion",
         messages: [{ role: "user", text: "我养了只猫叫年糕", createdAt: 1 }],
       });
       assert.equal(summary, "好呀");
@@ -163,7 +163,7 @@ describe("OpenAICompatibleProvider", () => {
   it("gives a deterministic demo summary merged with the previous one", async () => {
     const demo = new DemoProvider();
     const summary = await demo.summarize({
-      companionName: "小满",
+      companionName: "Companion",
       previousSummary: "之前：用户在准备考试。",
       messages: [
         { role: "user", text: "我养了只猫叫年糕", createdAt: 1 },

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { DEFAULT_COMPANION_PROFILE } from "./default-profile.js";
+import { XIAO_MAN_PROFILE } from "./test-fixtures.js";
 import { DEFAULT_EMOTION_STATE } from "./emotion.js";
 import { companionProfileSchema, MAX_PROFILE_CHARS, sanitizePersonaText, validateUserProfile } from "./profile.js";
 import { buildCompanionPrompt, buildPromptSections, buildSummaryPrompt } from "./prompt.js";
@@ -12,7 +12,7 @@ const NOW = Date.parse("2026-10-06T01:40:00+08:00");
 
 function prompt(overrides: Partial<Parameters<typeof buildCompanionPrompt>[0]> = {}): string {
   return buildCompanionPrompt({
-    profile: DEFAULT_COMPANION_PROFILE,
+    profile: XIAO_MAN_PROFILE,
     emotion: { ...DEFAULT_EMOTION_STATE, updatedAt: NOW },
     memories: [],
     now: NOW,
@@ -87,7 +87,7 @@ describe("buildCompanionPrompt", () => {
 
   it("keeps sections inside their budgets", () => {
     const sections = buildPromptSections({
-      profile: DEFAULT_COMPANION_PROFILE,
+      profile: XIAO_MAN_PROFILE,
       emotion: DEFAULT_EMOTION_STATE,
       memories: Array.from({ length: 50 }, (_, index) => ({ type: "fact", content: `记忆${index}`.repeat(10) })),
       summary: "摘".repeat(5000),
@@ -115,7 +115,7 @@ describe("buildCompanionPrompt", () => {
 
   it("rotates a random subset of example dialogues, labelled as style reference only", () => {
     const text = prompt({ exampleLimit: 2, random: () => 0 });
-    const shown = DEFAULT_COMPANION_PROFILE.exampleDialogues.filter((dialogue) => text.includes(dialogue.user));
+    const shown = XIAO_MAN_PROFILE.exampleDialogues.filter((dialogue) => text.includes(dialogue.user));
     assert.equal(shown.length, 2);
     assert.match(text, /不要复用其中的句子/u);
   });

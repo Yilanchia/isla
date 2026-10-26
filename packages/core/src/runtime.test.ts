@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { DEFAULT_COMPANION_PROFILE } from "./default-profile.js";
+import { XIAO_MAN_PROFILE } from "./test-fixtures.js";
 import { MemoryStore } from "./memory.js";
 import { CompanionRuntime, selectHistory } from "./runtime.js";
 import type { ModelProvider, ModelRequest, SummaryRequest } from "./types.js";
@@ -335,7 +335,7 @@ describe("CompanionRuntime working memory", () => {
     const runtime = new CompanionRuntime({
       provider,
       now: () => now,
-      profiles: { get: (id) => (id === "default-companion" ? { ...DEFAULT_COMPANION_PROFILE, name: "阿满" } : undefined) },
+      profiles: { get: (id) => (id === "default-companion" ? { ...XIAO_MAN_PROFILE, name: "阿满" } : undefined) },
       history: {
         recentMessages: () => [
           { role: "user", text: "晚安", createdAt: now - 3 * day },
@@ -436,6 +436,7 @@ describe("CompanionRuntime reply rhythm and style checks", () => {
           return { text: replies[requests.length - 1] ?? "嗯" };
         },
       },
+      profiles: { get: () => XIAO_MAN_PROFILE },
       onStyleFlag: (flag) => flags.push(`${flag.kind}:${flag.detail}`),
     });
     const results = [];
