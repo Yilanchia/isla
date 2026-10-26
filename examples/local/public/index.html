@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Isla · 陪伴核心</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #111214;
+        --panel: #17181b;
+        --panel-2: #1e2024;
+        --line: #2a2d33;
+        --text: #e8e6e3;
+        --muted: #8b8f98;
+        --accent: #c8a96e;
+        --accent-soft: #3a3227;
+        --danger: #b45454;
+        --radius: 14px;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.6 ui-sans-serif, system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+      #app { display: grid; grid-template-columns: 300px 1fr; height: 100vh; }
+      aside {
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        padding: 22px 18px;
+        overflow-y: auto;
+      }
+      .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+      .avatar {
+        width: 44px; height: 44px; border-radius: 50%;
+        background: radial-gradient(circle at 35% 30%, #e5d4ae, #8a6f45 65%, #4a3a24);
+        box-shadow: 0 0 0 1px #ffffff14, 0 6px 18px #00000055;
+        flex: none;
+      }
+      .brand h1 { font-size: 17px; margin: 0; font-weight: 600; letter-spacing: .04em; }
+      .brand p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+      h2 {
+        font-size: 11px; letter-spacing: .14em; color: var(--muted);
+        text-transform: uppercase; margin: 26px 0 10px; font-weight: 600;
+      }
+      .emotion { display: grid; gap: 8px; }
+      .emotion-row { display: grid; grid-template-columns: 52px 1fr; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+      .bar { height: 4px; background: var(--panel-2); border-radius: 99px; overflow: hidden; position: relative; }
+      .bar i { position: absolute; inset: 0 auto 0 50%; background: var(--accent); border-radius: 99px; }
+      .memories { display: grid; gap: 6px; }
+      .memory {
+        font-size: 12px; line-height: 1.5; color: #c9c6c0;
+        background: var(--panel-2); border: 1px solid var(--line);
+        border-radius: 10px; padding: 8px 10px; display: flex; gap: 8px; align-items: flex-start;
+      }
+      .memory .type { color: var(--accent); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; margin-top: 2px; }
+      .memory button {
+        margin-left: auto; background: none; border: 0; color: var(--muted);
+        cursor: pointer; font-size: 14px; padding: 0 2px; flex: none;
+      }
+      .memory button:hover { color: var(--danger); }
+      .empty { color: var(--muted); font-size: 12px; }
+      main { display: grid; grid-template-rows: 56px 1fr auto; min-width: 0; }
+      header {
+        display: flex; align-items: center; gap: 10px; padding: 0 22px;
+        border-bottom: 1px solid var(--line); font-size: 14px;
+      }
+      header .dot { width: 7px; height: 7px; border-radius: 50%; background: #6ea87a; }
+      header .model { margin-left: auto; font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; }
+      #messages { overflow-y: auto; padding: 24px clamp(16px, 6vw, 80px) 10px; display: flex; flex-direction: column; gap: 10px; }
+      .row { display: flex; gap: 10px; max-width: 760px; }
+      .row.user { margin-left: auto; flex-direction: row-reverse; }
+      .bubble {
+        padding: 9px 13px; border-radius: var(--radius); white-space: pre-wrap; word-break: break-word;
+        background: var(--panel-2); border: 1px solid var(--line); max-width: 78%;
+      }
+      .row.user .bubble { background: var(--accent-soft); border-color: #4a3f2c; }
+      .meta { font-size: 10px; color: var(--muted); align-self: flex-end; margin-bottom: 2px; flex: none; }
+      .typing { display: inline-flex; gap: 4px; padding: 12px 14px; }
+      .typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
+      .typing i:nth-child(2) { animation-delay: .18s; }
+      .typing i:nth-child(3) { animation-delay: .36s; }
+      @keyframes blink { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
+      form {
+        display: flex; gap: 10px; padding: 14px clamp(16px, 6vw, 80px) 22px;
+        border-top: 1px solid var(--line); background: linear-gradient(180deg, transparent, #0d0e1080);
+      }
+      textarea {
+        flex: 1; resize: none; min-height: 44px; max-height: 160px; padding: 11px 13px;
+        border-radius: var(--radius); border: 1px solid var(--line); background: var(--panel);
+        color: var(--text); font: inherit; outline: none;
+      }
+      textarea:focus { border-color: #4a4231; }
+      button.send {
+        border: 1px solid #4a3f2c; background: var(--accent-soft); color: var(--accent);
+        border-radius: var(--radius); padding: 0 18px; font: inherit; cursor: pointer;
+      }
+      button.send:disabled { opacity: .45; cursor: default; }
+      .error { color: var(--danger); font-size: 12px; padding: 0 24px; }
+      @media (max-width: 760px) {
+        #app { grid-template-columns: 1fr; }
+        aside { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <aside>
+        <div class="brand">
+          <div class="avatar"></div>
+          <div>
+            <h1 id="name">艾拉</h1>
+            <p id="identity">正在醒来…</p>
+          </div>
+        </div>
+        <h2>此刻</h2>
+        <div class="emotion" id="emotion"></div>
+        <h2>她记得的事</h2>
+        <div class="memories" id="memories"></div>
+      </aside>
+      <main>
+        <header>
+          <span class="dot"></span>
+          <span>艾拉</span>
+          <span class="model" id="model"></span>
+        </header>
+        <div id="messages"></div>
+        <form id="composer">
+          <textarea id="input" rows="1" placeholder="说点什么…（Enter 发送，Shift+Enter 换行）"></textarea>
+          <button class="send" type="submit" id="send">发送</button>
+        </form>
+      </main>
+    </div>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const LABELS = {
+        pleasure: "愉悦", arousal: "激活", dominance: "掌控",
+        trust: "信任", bonding: "亲密", energy: "精力"
+      };
+      let busy = false;
+
+      function el(tag, className, text) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      function clock(ts) {
+        const date = new Date(ts);
+        return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+      }
+
+      function addMessage(role, text, createdAt) {
+        const row = el("div", `row ${role}`);
+        const bubble = el("div", "bubble", text);
+        const meta = el("div", "meta", clock(createdAt || Date.now()));
+        row.append(bubble, meta);
+        $("messages").append(row);
+        $("messages").scrollTop = $("messages").scrollHeight;
+        return row;
+      }
+
+      function showTyping() {
+        const row = el("div", "row assistant");
+        const bubble = el("div", "bubble typing");
+        bubble.append(el("i"), el("i"), el("i"));
+        row.append(bubble);
+        $("messages").append(row);
+        $("messages").scrollTop = $("messages").scrollHeight;
+        return row;
+      }
+
+      function renderEmotion(emotion) {
+        const box = $("emotion");
+        box.replaceChildren();
+        if (!emotion) {
+          box.append(el("div", "empty", "还没有情绪记录"));
+          return;
+        }
+        for (const [key, label] of Object.entries(LABELS)) {
+          const value = Number(emotion[key] ?? 0);
+          const row = el("div", "emotion-row");
+          const bar = el("div", "bar");
+          const fill = el("i");
+          if (key === "energy") {
+            fill.style.left = "0";
+            fill.style.right = `${100 - Math.max(0, Math.min(1, value)) * 100}%`;
+          } else {
+            const width = Math.abs(value) * 50;
+            fill.style.left = value >= 0 ? "50%" : `${50 - width}%`;
+            fill.style.width = `${width}%`;
+            fill.style.right = "auto";
+            fill.style.background = value >= 0 ? "var(--accent)" : "#7d6a8c";
+          }
+          bar.append(fill);
+          row.append(el("span", "", label), bar);
+          box.append(row);
+        }
+      }
+
+      function renderMemories(memories) {
+        const box = $("memories");
+        box.replaceChildren();
+        const active = (memories || []).filter((memory) => !memory.validTo);
+        if (active.length === 0) {
+          box.append(el("div", "empty", "还没有记住什么。聊几句试试。"));
+          return;
+        }
+        for (const memory of active.slice(0, 12)) {
+          const item = el("div", "memory");
+          item.append(el("span", "type", memory.type));
+          item.append(el("span", "", memory.content));
+          const remove = el("button", "", "×");
+          remove.title = "让她忘掉这件事";
+          remove.addEventListener("click", async () => {
+            await fetch(`/v1/memories/${encodeURIComponent(memory.id)}`, { method: "DELETE" });
+            await loadState();
+          });
+          item.append(remove);
+          box.append(item);
+        }
+      }
+
+      async function loadState() {
+        const [state, history] = await Promise.all([
+          fetch("/v1/state").then((response) => response.json()),
+          fetch("/v1/messages").then((response) => response.json()),
+        ]);
+        $("name").textContent = state.companion?.name ?? "艾拉";
+        $("identity").textContent = state.companion?.identity ?? "";
+        $("model").textContent = state.provider ?? "";
+        renderEmotion(state.emotion);
+        renderMemories(state.memories);
+        const box = $("messages");
+        box.replaceChildren();
+        for (const message of history.messages || []) {
+          addMessage(message.role, message.text, message.createdAt);
+        }
+      }
+
+      async function send(text) {
+        if (busy || !text.trim()) return;
+        busy = true;
+        $("send").disabled = true;
+        addMessage("user", text.trim(), Date.now());
+        const typing = showTyping();
+        try {
+          const response = await fetch("/v1/chat", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ text: text.trim(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "请求失败");
+          typing.remove();
+          for (const bubble of result.messages) {
+            await new Promise((resolve) => setTimeout(resolve, Math.min(bubble.delayMs ?? 0, 4000)));
+            addMessage("assistant", bubble.text, bubble.createdAt);
+          }
+          renderEmotion(result.emotion);
+          const state = await fetch("/v1/state").then((r) => r.json());
+          renderMemories(state.memories);
+        } catch (error) {
+          typing.remove();
+          addMessage("assistant", `（连接出了问题：${error.message}）`, Date.now());
+        } finally {
+          busy = false;
+          $("send").disabled = false;
+          $("input").focus();
+        }
+      }
+
+      $("composer").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const input = $("input");
+        const text = input.value;
+        input.value = "";
+        input.style.height = "auto";
+        send(text);
+      });
+
+      $("input").addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          $("composer").requestSubmit();
+        }
+      });
+
+      $("input").addEventListener("input", () => {
+        const input = $("input");
+        input.style.height = "auto";
+        input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
+      });
+
+      loadState().catch((error) => {
+        $("messages").append(el("div", "error", `加载失败：${error.message}`));
+      });
+    </script>
+  </body>
+</html>

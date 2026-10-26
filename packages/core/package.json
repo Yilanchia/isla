@@ -1,0 +1,40 @@
+{
+  "name": "@isla/core",
+  "version": "0.1.0",
+  "description": "Headless companion runtime: persona, memory, emotion, rhythm and proactive messages.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "keywords": [
+    "ai",
+    "companion",
+    "chatbot",
+    "memory",
+    "persona",
+    "llm"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm build && node --test dist/*.test.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.8.0",
+    "typescript": "^5.8.3"
+  }
+}

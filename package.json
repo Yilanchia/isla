@@ -1,0 +1,21 @@
+{
+  "name": "isla",
+  "private": true,
+  "description": "A headless AI companion runtime: persona, memory, emotion, rhythm, proactive messages.",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "dev": "pnpm build && pnpm --filter @isla/example-local start",
+    "eval": "pnpm build && pnpm --filter @isla/evals test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.8.0",
+    "typescript": "^5.8.3"
+  }
+}

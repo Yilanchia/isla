@@ -1,0 +1,21 @@
+{
+  "name": "@isla/evals",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Behavioural evaluations for the Isla runtime.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm build && node --test dist/*.test.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@isla/core": "workspace:*",
+    "@isla/providers": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.8.0",
+    "typescript": "^5.8.3"
+  }
+}
