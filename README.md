@@ -1,7 +1,6 @@
 # Isla
 
-A headless AI companion runtime. Persona, memory, emotion, rhythm and proactive messages â€”
-as a library you can embed, not another chat app.
+A headless AI companion runtime. Persona, memory, emotion, rhythm and proactive messages â€?as a library you can embed, not another chat app.
 
 [ä¸­æ–‡æ–‡æ¡£](README.zh-CN.md) Â· [Design](docs/design.md) Â· [Companion ethics](docs/companion-ethics.md) Â· [Acceptable use](ACCEPTABLE_USE.md)
 
@@ -18,17 +17,17 @@ Most open-source companion projects are a character card plus a chat front-end. 
 part underneath: the runtime that decides what the model sees, what gets remembered, how the
 reply is paced, and when the companion is allowed to reach out.
 
-- **Persona** â€” a structured profile (identity, voice, examples, boundaries, daily routine),
+- **Persona** â€?a structured profile (identity, voice, examples, boundaries, daily routine),
   sanitized, budgeted, and always followed by non-overridable safety rules.
-- **Memory** â€” versioned facts with sources, importance/confidence, time decay and MMR, so a
+- **Memory** â€?versioned facts with sources, importance/confidence, time decay and MMR, so a
   new fact closes the old one instead of overwriting its evidence.
-- **Emotion** â€” six dimensions (pleasure, arousal, dominance, trust, bonding, energy) with
+- **Emotion** â€?six dimensions (pleasure, arousal, dominance, trust, bonding, energy) with
   decay and event updates; the label is a render layer, not the state.
-- **Rhythm** â€” replies split into bubbles with typing delays, burst input, and a guard against
+- **Rhythm** â€?replies split into bubbles with typing delays, burst input, and a guard against
   ending every turn with a question.
-- **Proactivity** â€” a scheduler with consent, quiet hours, a daily cap and a cooldown. Off by
+- **Proactivity** â€?a scheduler with consent, quiet hours, a daily cap and a cooldown. Off by
   default.
-- **Plugins** â€” an event bus that isolates failures, so a bad plugin cannot break a turn.
+- **Plugins** â€?an event bus that isolates failures, so a bad plugin cannot break a turn.
 
 ## Packages
 
@@ -74,7 +73,7 @@ ISLA_PROVIDER=deepseek ISLA_API_KEY=sk-... ISLA_MODEL=deepseek-chat pnpm dev
 
 ## Design principles
 
-1. The core never touches the network, the filesystem, the clock or a database â€” everything
+1. The core never touches the network, the filesystem, the clock or a database â€?everything
    is injected, so every turn is testable.
 2. Anything that interrupts the user is off by default.
 3. Anything remembered about the user can be inspected, edited and deleted.

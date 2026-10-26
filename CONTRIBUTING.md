@@ -2,7 +2,7 @@
 
 ## 环境
 
-- Node.js 22.5+（推荐 24）
+- Node.js 24+
 - pnpm 11
 
 ```bash

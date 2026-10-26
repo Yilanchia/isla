@@ -217,7 +217,7 @@ pnpm eval
 - **不做认证**：谁能调用 `handleMessage` 由宿主决定。
 - **不做 UI/计费/运营后台**：`examples/local` 只是演示。
 - **不做真人克隆**：见 [ACCEPTABLE_USE.md](ACCEPTABLE_USE.md)。
-- **SQLite 依赖 Node 内置 `node:sqlite`**（Node 22.5+，24 稳定）。
+- **SQLite 依赖 Node 内置 `node:sqlite`**（Node 24+）。
 
 ---
 
