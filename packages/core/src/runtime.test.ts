@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { XIAO_MAN_PROFILE } from "./test-fixtures.js";
+import { DEFAULT_COMPANION_PROFILE } from "./default-profile.js";
 import { MemoryStore } from "./memory.js";
 import { CompanionRuntime, selectHistory } from "./runtime.js";
 import type { ModelProvider, ModelRequest, SummaryRequest } from "./types.js";
@@ -335,7 +335,7 @@ describe("CompanionRuntime working memory", () => {
     const runtime = new CompanionRuntime({
       provider,
       now: () => now,
-      profiles: { get: (id) => (id === "default-companion" ? { ...XIAO_MAN_PROFILE, name: "阿满" } : undefined) },
+      profiles: { get: (id) => (id === "default-companion" ? { ...DEFAULT_COMPANION_PROFILE, name: "阿满" } : undefined) },
       history: {
         recentMessages: () => [
           { role: "user", text: "晚安", createdAt: now - 3 * day },
@@ -425,7 +425,7 @@ describe("CompanionRuntime reply rhythm and style checks", () => {
   });
 
   it("adds a no-question instruction after question-heavy turns and flags copied example lines", async () => {
-    const replies = ["你吃了吗", "好家伙", "那你呢？", "不过陪你聊天这件事是真的，这个不掺水"];
+    const replies = ["你吃了吗", "好家伙", "那你呢？", "不是哦，我是 AI。不过陪你聊天这件事是真的。"];
     const requests: ModelRequest[] = [];
     const flags: string[] = [];
     const runtime = new CompanionRuntime({
@@ -436,7 +436,7 @@ describe("CompanionRuntime reply rhythm and style checks", () => {
           return { text: replies[requests.length - 1] ?? "嗯" };
         },
       },
-      profiles: { get: () => XIAO_MAN_PROFILE },
+      profiles: { get: () => DEFAULT_COMPANION_PROFILE },
       onStyleFlag: (flag) => flags.push(`${flag.kind}:${flag.detail}`),
     });
     const results = [];
@@ -449,8 +449,8 @@ describe("CompanionRuntime reply rhythm and style checks", () => {
     assert.doesNotMatch(requests[2]?.systemPrompt ?? "", avoid, "1 of the last 2 turns, and not the last one");
     assert.match(requests[3]?.systemPrompt ?? "", avoid, "2 of the last 3 turns");
     assert.deepEqual(results.map((r) => r.debug.endedWithQuestion), [true, false, true, false]);
-    assert.equal(results[3]?.debug.copiedExample, "不过陪你聊天这件事是真的这个不掺水");
-    assert.deepEqual(flags, ["copied-example:不过陪你聊天这件事是真的这个不掺水"]);
+    assert.equal(results[3]?.debug.copiedExample, "不是哦我是AI不过陪你聊天这件事是真的");
+    assert.deepEqual(flags, ["copied-example:不是哦我是AI不过陪你聊天这件事是真的"]);
     assert.equal(results[0]?.debug.copiedExample, undefined);
   });
 });

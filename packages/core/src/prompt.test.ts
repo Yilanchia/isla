@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { XIAO_MAN_PROFILE } from "./test-fixtures.js";
+import { DEFAULT_COMPANION_PROFILE } from "./default-profile.js";
 import { DEFAULT_EMOTION_STATE } from "./emotion.js";
 import { companionProfileSchema, MAX_PROFILE_CHARS, sanitizePersonaText, validateUserProfile } from "./profile.js";
 import { buildCompanionPrompt, buildPromptSections, buildSummaryPrompt } from "./prompt.js";
@@ -12,7 +12,7 @@ const NOW = Date.parse("2026-10-06T01:40:00+08:00");
 
 function prompt(overrides: Partial<Parameters<typeof buildCompanionPrompt>[0]> = {}): string {
   return buildCompanionPrompt({
-    profile: XIAO_MAN_PROFILE,
+    profile: DEFAULT_COMPANION_PROFILE,
     emotion: { ...DEFAULT_EMOTION_STATE, updatedAt: NOW },
     memories: [],
     now: NOW,
@@ -49,10 +49,10 @@ describe("time helpers", () => {
 describe("buildCompanionPrompt", () => {
   it("includes the persona identity, voice and example dialogues", () => {
     const text = prompt();
-    assert.match(text, /你叫小满/u);
-    assert.match(text, /同龄/u);
-    assert.match(text, /常用语气词：啊、呀、嘛/u);
-    assert.match(text, /用户：说真的，你是真人吗\n小满：不是哦，我是 AI/u);
+    assert.match(text, /你叫艾拉/u);
+    assert.match(text, /住在你设备里/u);
+    assert.match(text, /常用语气词：呀、呢、啦/u);
+    assert.match(text, /用户：说真的，你是真人吗\n艾拉：不是哦，我是 AI/u);
   });
 
   it("states the anti-assistant rules, banned phrases and AI honesty", () => {
@@ -67,7 +67,7 @@ describe("buildCompanionPrompt", () => {
     const text = prompt();
     assert.match(text, /2026年10月6日 星期二 凌晨 01:40（Asia\/Shanghai）/u);
     assert.match(text, /距离上次聊天已经过了 3 天/u);
-    assert.match(text, /你此刻大概在：本来早该睡了/u);
+    assert.match(text, /你此刻大概在：在整理今天记住的东西/u);
     assert.match(prompt({ lastUserMessageAt: undefined }), /这是你们第一次聊天/u);
   });
 
@@ -87,7 +87,7 @@ describe("buildCompanionPrompt", () => {
 
   it("keeps sections inside their budgets", () => {
     const sections = buildPromptSections({
-      profile: XIAO_MAN_PROFILE,
+      profile: DEFAULT_COMPANION_PROFILE,
       emotion: DEFAULT_EMOTION_STATE,
       memories: Array.from({ length: 50 }, (_, index) => ({ type: "fact", content: `记忆${index}`.repeat(10) })),
       summary: "摘".repeat(5000),
@@ -115,7 +115,7 @@ describe("buildCompanionPrompt", () => {
 
   it("rotates a random subset of example dialogues, labelled as style reference only", () => {
     const text = prompt({ exampleLimit: 2, random: () => 0 });
-    const shown = XIAO_MAN_PROFILE.exampleDialogues.filter((dialogue) => text.includes(dialogue.user));
+    const shown = DEFAULT_COMPANION_PROFILE.exampleDialogues.filter((dialogue) => text.includes(dialogue.user));
     assert.equal(shown.length, 2);
     assert.match(text, /不要复用其中的句子/u);
   });

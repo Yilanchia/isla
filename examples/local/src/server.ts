@@ -3,21 +3,22 @@ import { mkdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CompanionRuntime, type ConversationScope } from "@isla/core";
+import {
+  CompanionRuntime,
+  DEFAULT_COMPANION_ID,
+  DEFAULT_COMPANION_PROFILE,
+  type ConversationScope,
+} from "@isla/core";
 import { describeProvider, providerFromEnv } from "@isla/providers";
 import { openSqliteStorage } from "@isla/store-sqlite";
-import { selectPersona } from "./personas.js";
 
 const PORT = Number(process.env.PORT ?? 8790);
 const OWNER_ID = "local";
 const CONVERSATION_ID = "main";
+const COMPANION_ID = DEFAULT_COMPANION_ID;
 const DB_PATH =
   process.env.ISLA_DATA_PATH ?? fileURLToPath(new URL("../data/isla.sqlite", import.meta.url));
 const INDEX_PATH = fileURLToPath(new URL("../public/index.html", import.meta.url));
-
-// The runtime ships no persona; the demo picks one of the examples, defaulting to the neutral one.
-const persona = selectPersona(process.env.ISLA_PERSONA);
-const COMPANION_ID = persona.id;
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
 const storage = openSqliteStorage({ path: DB_PATH });
@@ -28,11 +29,13 @@ const scope: ConversationScope = {
   conversationId: CONVERSATION_ID,
 };
 
+// The demo reuses the sample persona from @isla/core. A real host would load its own profiles.
 const runtime = new CompanionRuntime({
   storage,
   provider: providerFromEnv(),
   profiles: {
-    get: (id) => (id === COMPANION_ID ? Promise.resolve(persona.profile) : Promise.resolve(undefined)),
+    get: (id) =>
+      id === COMPANION_ID ? Promise.resolve(DEFAULT_COMPANION_PROFILE) : Promise.resolve(undefined),
   },
 });
 
@@ -59,8 +62,7 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
     sendJson(response, 200, {
       ok: true,
       provider: providerName,
-      persona: persona.id,
-      companion: persona.profile.name,
+      companion: DEFAULT_COMPANION_PROFILE.name,
       storage: DB_PATH,
     });
     return;
@@ -70,10 +72,9 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
     sendJson(response, 200, {
       companion: {
         id: COMPANION_ID,
-        name: persona.profile.name,
-        identity: persona.profile.identity,
+        name: DEFAULT_COMPANION_PROFILE.name,
+        identity: DEFAULT_COMPANION_PROFILE.identity,
       },
-      persona: persona.id,
       provider: providerName,
       emotion: runtime.getEmotion(OWNER_ID, COMPANION_ID),
       memories: storage.memory
@@ -155,9 +156,9 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
 
 server.listen(PORT, () => {
   console.log(`Isla is awake at http://127.0.0.1:${PORT}`);
-  console.log(`persona:  ${persona.id} (${persona.profile.name})`);
-  console.log(`provider: ${providerName}`);
-  console.log(`data:     ${DB_PATH}`);
+  console.log(`companion: ${DEFAULT_COMPANION_PROFILE.name} (sample persona)`);
+  console.log(`provider:  ${providerName}`);
+  console.log(`data:      ${DB_PATH}`);
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

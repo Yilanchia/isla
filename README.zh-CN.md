@@ -2,7 +2,7 @@
 
 一个不绑定 UI 的 AI 陪伴运行时：人格、记忆、情绪、回复节奏、主动消息，做成可以嵌进任何程序的库，而不是又一个聊天 App。
 
-> Isla 是框架名，**不内置任何角色**。`examples/local` 里附带两个示例人设：默认是中性占位的「阿澄」，`ISLA_PERSONA=isla` 可以切到另一个致敬示例。它们只是演示，宿主应该换成自己的 `CompanionProfile`。
+> Isla 是框架名。内置的「艾拉」只是一个**示例人设**，用来让新克隆的仓库能直接聊起来；宿主应该通过 `CompanionProfileSource` 换成自己的角色，示例里的所有字段都可以改。
 
 [English](README.md) · [设计文档](docs/design.md) · [陪伴伦理](docs/companion-ethics.md) · [可接受使用](ACCEPTABLE_USE.md)
 

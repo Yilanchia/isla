@@ -12,9 +12,8 @@ pnpm dev          # http://127.0.0.1:8790
 
 No API key needed: the demo runs offline with a deterministic provider.
 
-The framework ships no built-in character. The demo includes two example personas — a neutral
-default, plus an optional homage example selected with `ISLA_PERSONA=isla` — and a host is
-expected to supply its own `CompanionProfile`.
+The framework has no product character of its own: `@isla/core` ships one sample persona
+(「艾拉」) so a fresh checkout can chat immediately. Replace it with your own `CompanionProfile`.
 
 ## Why another companion project
 
