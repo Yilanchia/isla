@@ -1,8 +1,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { CompanionRuntime, type ConversationScope } from "@isla/core";
-import { REI_PROFILE } from "@isla/personas";
+import {
+  CompanionRuntime,
+  DEFAULT_COMPANION_ID,
+  DEFAULT_COMPANION_PROFILE,
+  type ConversationScope,
+} from "@isla/core";
 import { describeProvider, providerFromEnv } from "@isla/providers";
 import { openSqliteStorage } from "@isla/store-sqlite";
 
@@ -11,7 +15,7 @@ const HOST = process.env.HOST ?? "127.0.0.1";
 const DATA_PATH = process.env.ISLA_DATA_PATH ?? "./data/isla.sqlite";
 const HTTP_TOKEN = process.env.ISLA_HTTP_TOKEN ?? "";
 const OWNER_ID = process.env.ISLA_OWNER_ID ?? "owner";
-const COMPANION_ID = process.env.ISLA_COMPANION_ID ?? "rei";
+const COMPANION_ID = process.env.ISLA_COMPANION_ID ?? DEFAULT_COMPANION_ID;
 const TURN_TIMEOUT_MS = Number(process.env.ISLA_TURN_TIMEOUT_MS ?? 90_000);
 const MAX_BODY = 1_000_000;
 
@@ -22,7 +26,8 @@ const runtime = new CompanionRuntime({
   storage,
   provider: providerFromEnv(),
   profiles: {
-    get: (id) => (id === COMPANION_ID ? Promise.resolve(REI_PROFILE) : Promise.resolve(undefined)),
+    get: (id) =>
+      id === COMPANION_ID ? Promise.resolve(DEFAULT_COMPANION_PROFILE) : Promise.resolve(undefined),
   },
   turnTimeoutMs: TURN_TIMEOUT_MS,
 });
@@ -76,7 +81,7 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   }
 
   if (request.method === "GET" && url.pathname === "/health") {
-    sendJson(response, 200, { ok: true, provider: providerName, companion: REI_PROFILE.name, storage: DATA_PATH });
+    sendJson(response, 200, { ok: true, provider: providerName, companion: DEFAULT_COMPANION_PROFILE.name, storage: DATA_PATH });
     return;
   }
 
@@ -85,7 +90,11 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
     const scope = scopeOf(umo);
     sendJson(response, 200, {
       umo,
-      companion: { id: COMPANION_ID, name: REI_PROFILE.name, identity: REI_PROFILE.identity },
+      companion: {
+        id: COMPANION_ID,
+        name: DEFAULT_COMPANION_PROFILE.name,
+        identity: DEFAULT_COMPANION_PROFILE.identity,
+      },
       emotion: runtime.getEmotion(OWNER_ID, COMPANION_ID),
       memories: storage.memory
         .list({ ownerId: OWNER_ID, companionId: COMPANION_ID })
@@ -147,6 +156,7 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
         emotion: result.emotion,
         emotionLabel: result.emotionLabel,
         memoriesUsed: result.memoriesUsed.map((memory) => memory.content),
+        trace: result.trace,
         debug: result.debug,
       });
     } finally {
@@ -160,7 +170,7 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
 
 server.listen(PORT, HOST, () => {
   console.log(`isla qq-service on http://${HOST}:${PORT}`);
-  console.log(`companion: ${REI_PROFILE.name}  provider: ${providerName}`);
+  console.log(`companion: ${DEFAULT_COMPANION_PROFILE.name}  provider: ${providerName}`);
   console.log(`data: ${DATA_PATH}`);
 });
 

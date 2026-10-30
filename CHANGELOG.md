@@ -8,7 +8,6 @@ Governance, traces, and a second transport.
   audit log; `TurnBlockedError`; `TurnResult.trace` with prompt sections, token estimates, cost
   and latency.
 - `@isla/providers`: optional `maxTokens`; model errors now include a short response body.
-- `@isla/personas`: example persona package (Rei Ayanami) used by the demo and the QQ service.
 - `apps/qq-service`: authenticated multi-session HTTP adapter for the QQ transport.
 - `examples/local`: a "this turn" trace panel and a pause button.
 - `docs/governance.md`, `POSITIONING.md`.

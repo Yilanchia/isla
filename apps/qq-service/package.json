@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@isla/core": "workspace:*",
-    "@isla/personas": "workspace:*",
     "@isla/providers": "workspace:*",
     "@isla/store-sqlite": "workspace:*"
   },

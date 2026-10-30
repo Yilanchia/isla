@@ -43,7 +43,6 @@ reply is paced, and when the companion is allowed to reach out.
 | `@isla/core` | The runtime. No network, filesystem, clock or database of its own. |
 | `@isla/store-sqlite` | SQLite persistence via Node's built-in `node:sqlite`. |
 | `@isla/providers` | OpenAI-compatible, DeepSeek, Ollama, LM Studio, plus the offline demo. |
-| `@isla/personas` | Example personas used by the demo and the QQ service. Replace before shipping. |
 | `apps/qq-service` | Authenticated multi-session HTTP adapter for the QQ transport. |
 | `examples/local` | A single-user web chat with a memory and emotion panel. |
 | `evals` | Behavioural checks that run in CI. |

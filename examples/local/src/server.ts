@@ -6,11 +6,11 @@ import { fileURLToPath } from "node:url";
 import {
   CompanionRuntime,
   DEFAULT_COMPANION_ID,
+  DEFAULT_COMPANION_PROFILE,
   Governance,
   TurnBlockedError,
   type ConversationScope,
 } from "@isla/core";
-import { REI_PROFILE } from "./personas/rei.js";
 import { describeProvider, providerFromEnv } from "@isla/providers";
 import { openSqliteStorage } from "@isla/store-sqlite";
 
@@ -31,8 +31,8 @@ const scope: ConversationScope = {
   conversationId: CONVERSATION_ID,
 };
 
-// 演示站固定用绫波丽；正式宿主通过 CompanionProfileSource 换人设。
-const PROFILE = REI_PROFILE;
+// The demo reuses the built-in sample persona. A real host loads its own profiles.
+const PROFILE = DEFAULT_COMPANION_PROFILE;
 
 // Demo budgets. Prices are illustrative, not a quote from any provider.
 const governance = new Governance({
