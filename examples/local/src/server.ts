@@ -40,6 +40,7 @@ const governance = new Governance({
   policy: {
     maxInputTokensPerTurn: 12_000,
     maxTokensPerDay: 200_000,
+    maxBackgroundTokensPerDay: 50_000,
     pricePerMillionInputTokens: 2,
     pricePerMillionOutputTokens: 8,
     expectedOutputTokens: 512,

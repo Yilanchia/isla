@@ -29,6 +29,7 @@ const governance = new Governance({
   policy: {
     maxInputTokensPerTurn: Number(process.env.ISLA_MAX_INPUT_TOKENS ?? 12_000),
     maxTokensPerDay: Number(process.env.ISLA_MAX_TOKENS_PER_DAY ?? 200_000),
+    maxBackgroundTokensPerDay: Number(process.env.ISLA_MAX_BACKGROUND_TOKENS ?? 50_000),
     pricePerMillionInputTokens: Number(process.env.ISLA_PRICE_IN ?? 0),
     pricePerMillionOutputTokens: Number(process.env.ISLA_PRICE_OUT ?? 0),
     expectedOutputTokens: Number(process.env.ISLA_EXPECTED_OUTPUT_TOKENS ?? 512),

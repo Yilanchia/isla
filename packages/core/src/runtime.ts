@@ -619,6 +619,15 @@ export class CompanionRuntime {
       messages: chunk.map(({ role, text, createdAt }) => ({ role, text, createdAt })),
       companionName,
     };
+    const summaryPrompt = buildSummaryPrompt(request);
+    const inputTokens =
+      estimateTokens(summaryPrompt.system) + estimateTokens(summaryPrompt.user);
+    const decision = this.governance?.canStartBackground(scope.ownerId, inputTokens);
+    if (decision && !decision.allowed) {
+      this.governance?.recordBackgroundBlocked(scope, decision.reason, decision.detail);
+      return;
+    }
+    const startedAt = this.now();
     const text = (await this.summarize(request)).trim();
     if (!text) {
       throw new Error("model returned an empty summary");
@@ -629,6 +638,12 @@ export class CompanionRuntime {
       updatedAt: this.now(),
     };
     await source.saveSummary?.(scope, summary);
+    this.governance?.recordBackground(scope, {
+      inputTokens,
+      outputTokens: estimateTokens(text),
+      latencyMs: Math.max(0, this.now() - startedAt),
+      provider: this.provider.name,
+    });
   }
 
   private async summarize(request: SummaryRequest): Promise<string> {

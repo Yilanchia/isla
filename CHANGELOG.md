@@ -9,6 +9,8 @@ Governance, traces, and a second transport.
   and latency.
 - `@isla/core`: daily usage persists through `UsageStore`; provider-reported token usage wins
   over the estimate, marked by `trace.usageSource`.
+- `@isla/core`: conversation summaries pass through `Governance.canStartBackground()` with their
+  own daily cap and `summary.blocked` audit entries.
 - `@isla/store-sqlite`: `usage` table for governance counters.
 - `@isla/providers`: optional `maxTokens`; model errors now include a short response body.
 - `apps/qq-service`: authenticated multi-session HTTP adapter for the QQ transport.

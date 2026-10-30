@@ -10,6 +10,7 @@ import {
   type ModelProvider,
   type ModelRequest,
   type ModelResponse,
+  type ConversationHistorySource,
 } from "@isla/core";
 
 /** A scripted provider that records every request, so evals can assert what the model saw. */
@@ -207,5 +208,45 @@ describe("behaviour evals", () => {
     assert.equal(result.trace.inputTokens, 123);
     assert.equal(result.trace.outputTokens, 45);
     assert.equal(result.trace.usageSource, "provider");
+  });
+
+  it("skips background summaries when the background budget is exhausted", async () => {
+    const saved: unknown[] = [];
+    const history: ConversationHistorySource = {
+      recentMessages: () =>
+        Array.from({ length: 4 }, (_, index) => ({
+          id: `recent-${index}`,
+          role: "user" as const,
+          text: "hi",
+          createdAt: 100 + index,
+        })),
+      messagesAfter: () =>
+        Array.from({ length: 20 }, (_, index) => ({
+          id: `old-${index}`,
+          role: "user" as const,
+          text: "old message",
+          createdAt: index,
+        })),
+      getSummary: () => undefined,
+      saveSummary: (_scope, summary) => {
+        saved.push(summary);
+      },
+      lastUserMessageAt: () => 100,
+    };
+    const runtime = new CompanionRuntime({
+      history,
+      governance: new Governance({ policy: { maxBackgroundTokensPerDay: 1 } }),
+      now: () => 1000,
+      workingMemory: { historyLimit: 4, summaryThreshold: 5, summaryChunkSize: 10 },
+    });
+    await runtime.handleMessage({
+      ownerId: "u1",
+      companionId: "isla",
+      conversationId: "c1",
+      channel: "platform",
+      text: "在吗",
+    });
+    await runtime.waitForBackgroundTasks();
+    assert.equal(saved.length, 0);
   });
 });

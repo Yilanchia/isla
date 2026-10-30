@@ -18,6 +18,8 @@ export interface GovernancePolicy {
   maxTokensPerDay: number;
   /** Max estimated cost per local calendar day, per owner. 0 = no limit. */
   maxCostPerDay: number;
+  /** Max estimated tokens per local calendar day for background work (summaries). 0 = no limit. */
+  maxBackgroundTokensPerDay: number;
   /** Price per million input tokens, in any currency. */
   pricePerMillionInputTokens: number;
   /** Price per million output tokens, in any currency. */
@@ -34,6 +36,7 @@ export const DEFAULT_GOVERNANCE_POLICY: GovernancePolicy = {
   maxOutputTokensPerTurn: 0,
   maxTokensPerDay: 0,
   maxCostPerDay: 0,
+  maxBackgroundTokensPerDay: 0,
   pricePerMillionInputTokens: 0,
   pricePerMillionOutputTokens: 0,
   expectedOutputTokens: 256,
@@ -45,7 +48,8 @@ export type GovernanceBlockReason =
   | "turn_input_budget"
   | "turn_output_budget"
   | "day_token_budget"
-  | "day_cost_budget";
+  | "day_cost_budget"
+  | "background_token_budget";
 
 export type GovernanceDecision =
   | { allowed: true }
@@ -64,6 +68,8 @@ export interface TurnUsage extends TokenUsage {
 export type AuditType =
   | "turn.completed"
   | "turn.blocked"
+  | "summary.completed"
+  | "summary.blocked"
   | "governance.paused"
   | "governance.resumed"
   | "governance.policy_changed";
@@ -135,6 +141,11 @@ export interface DayUsage {
   cost: number;
 }
 
+export interface BackgroundUsage {
+  day: string;
+  tokens: number;
+}
+
 export interface GovernanceOptions {
   policy?: Partial<GovernancePolicy>;
   sink?: AuditSink;
@@ -162,6 +173,7 @@ export class Governance {
   private readonly usageStore: UsageStore | undefined;
   private readonly now: () => number;
   private readonly days = new Map<string, DayUsage>();
+  private readonly backgroundDays = new Map<string, BackgroundUsage>();
 
   constructor(options: GovernanceOptions = {}) {
     this.current = { ...DEFAULT_GOVERNANCE_POLICY, ...options.policy };
@@ -239,6 +251,30 @@ export class Governance {
     return { allowed: true };
   }
 
+  /**
+   * The gate for background work (conversation summaries). It does not consume the user's
+   * per-turn budget; it has its own daily cap so a long conversation cannot quietly burn
+   * the whole allowance.
+   */
+  canStartBackground(ownerId: string, inputTokens: number): GovernanceDecision {
+    const policy = this.current;
+    if (policy.paused) {
+      return { allowed: false, reason: "paused", detail: "the companion is paused" };
+    }
+    if (policy.maxBackgroundTokensPerDay > 0) {
+      const usage = this.backgroundUsageFor(ownerId);
+      const projected = usage.tokens + inputTokens + policy.expectedOutputTokens;
+      if (projected > policy.maxBackgroundTokensPerDay) {
+        return {
+          allowed: false,
+          reason: "background_token_budget",
+          detail: `${projected} > ${policy.maxBackgroundTokensPerDay} background tokens today`,
+        };
+      }
+    }
+    return { allowed: true };
+  }
+
   /** Records a finished turn and returns its estimated cost. */
   recordTurn(scope: { ownerId: string; companionId: string }, usage: TurnUsage): number {
     const cost = this.estimateCost(usage);
@@ -259,6 +295,35 @@ export class Governance {
       data: { ...usage, cost },
     });
     return cost;
+  }
+
+  /** Records a finished background job (summary) against its own daily counter. */
+  recordBackground(scope: { ownerId: string; companionId: string }, usage: TurnUsage): void {
+    const current = this.backgroundUsageFor(scope.ownerId);
+    this.backgroundDays.set(scope.ownerId, {
+      day: current.day,
+      tokens: current.tokens + usage.inputTokens + usage.outputTokens,
+    });
+    this.record({
+      type: "summary.completed",
+      ownerId: scope.ownerId,
+      companionId: scope.companionId,
+      detail: `summary completed in ${usage.latencyMs} ms`,
+      data: { ...usage },
+    });
+  }
+
+  recordBackgroundBlocked(
+    scope: { ownerId: string; companionId: string },
+    reason: GovernanceBlockReason,
+    detail: string,
+  ): void {
+    this.record({
+      type: "summary.blocked",
+      ownerId: scope.ownerId,
+      companionId: scope.companionId,
+      detail: `${reason}: ${detail}`,
+    });
   }
 
   recordBlocked(
@@ -286,6 +351,12 @@ export class Governance {
       : { day, tokens: 0, cost: 0 };
     this.days.set(ownerId, usage);
     return { ...usage };
+  }
+
+  backgroundUsageFor(ownerId: string): BackgroundUsage {
+    const day = this.dayKey();
+    const current = this.backgroundDays.get(ownerId);
+    return current && current.day === day ? { ...current } : { day, tokens: 0 };
   }
 
   estimateCost(usage: TokenUsage): number {

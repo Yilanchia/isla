@@ -118,4 +118,23 @@ describe("Governance", () => {
     const second = new Governance({ usageStore, now: () => NOW });
     assert.equal(second.usageFor("user-a").tokens, 150);
   });
+
+  it("caps background work separately from user turns", () => {
+    const { instance } = governance({
+      maxBackgroundTokensPerDay: 100,
+      expectedOutputTokens: 10,
+    });
+    assert.deepEqual(instance.canStartBackground("user-a", 50), { allowed: true });
+    instance.recordBackground(scope, {
+      inputTokens: 50,
+      outputTokens: 10,
+      latencyMs: 1,
+      provider: "test",
+    });
+    assert.equal(instance.backgroundUsageFor("user-a").tokens, 60);
+
+    const decision = instance.canStartBackground("user-a", 50);
+    assert.equal(decision.allowed, false);
+    if (!decision.allowed) assert.equal(decision.reason, "background_token_budget");
+  });
 });

@@ -110,6 +110,18 @@ interface AuditSink {
 
 ---
 
+## 后台任务
+
+摘要任务走 `canStartBackground()`：
+
+- 不占用户的单轮额度，但有独立的每日上限 `maxBackgroundTokensPerDay`。
+- 被拒绝时不抛错，只跳过这次摘要，下一轮再试，并记一条 `summary.blocked`。
+- 暂停时后台任务同样停止。
+
+主动消息还没有接入（它目前不调用模型，只发送已排队的文本）。
+
+---
+
 ## Demo
 
 `examples/local` 里：
@@ -124,7 +136,7 @@ interface AuditSink {
 
 - **不替宿主做认证**：谁能调 `handleMessage` 仍由宿主决定。
 - **不做分布式预算**：日用量通过 `UsageStore` 落在本地（SQLite 已实现），但多实例仍会各算各的；需要共享预算时把 `UsageStore` 换成 Redis/Postgres 实现。
-- **不拦后台任务**：摘要任务目前不受治理层约束（它不直接面向用户）。这是已知缺口，0.3 会补。
+- **后台任务有独立预算**：摘要走 `maxBackgroundTokensPerDay`，不占单轮额度；主动消息尚未接入。
 - **暂停不影响已写入的消息**：暂停只拦「生成」，不删历史。
 
 ---
