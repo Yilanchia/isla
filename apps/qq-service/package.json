@@ -1,0 +1,27 @@
+{
+  "name": "@isla/qq-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-session HTTP surface for Isla, used by the QQ transport (AstrBot).",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@isla/core": "workspace:*",
+    "@isla/personas": "workspace:*",
+    "@isla/providers": "workspace:*",
+    "@isla/store-sqlite": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.8.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

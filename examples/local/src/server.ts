@@ -6,9 +6,11 @@ import { fileURLToPath } from "node:url";
 import {
   CompanionRuntime,
   DEFAULT_COMPANION_ID,
-  DEFAULT_COMPANION_PROFILE,
+  Governance,
+  TurnBlockedError,
   type ConversationScope,
 } from "@isla/core";
+import { REI_PROFILE } from "./personas/rei.js";
 import { describeProvider, providerFromEnv } from "@isla/providers";
 import { openSqliteStorage } from "@isla/store-sqlite";
 
@@ -29,13 +31,28 @@ const scope: ConversationScope = {
   conversationId: CONVERSATION_ID,
 };
 
-// The demo reuses the sample persona from @isla/core. A real host would load its own profiles.
+// 演示站固定用绫波丽；正式宿主通过 CompanionProfileSource 换人设。
+const PROFILE = REI_PROFILE;
+
+// Demo budgets. Prices are illustrative, not a quote from any provider.
+const governance = new Governance({
+  policy: {
+    maxInputTokensPerTurn: 12_000,
+    maxTokensPerDay: 200_000,
+    pricePerMillionInputTokens: 2,
+    pricePerMillionOutputTokens: 8,
+    expectedOutputTokens: 512,
+    timezone: "Asia/Shanghai",
+  },
+});
+
 const runtime = new CompanionRuntime({
   storage,
+  governance,
   provider: providerFromEnv(),
   profiles: {
     get: (id) =>
-      id === COMPANION_ID ? Promise.resolve(DEFAULT_COMPANION_PROFILE) : Promise.resolve(undefined),
+      id === COMPANION_ID ? Promise.resolve(PROFILE) : Promise.resolve(undefined),
   },
 });
 
@@ -62,7 +79,7 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
     sendJson(response, 200, {
       ok: true,
       provider: providerName,
-      companion: DEFAULT_COMPANION_PROFILE.name,
+      companion: PROFILE.name,
       storage: DB_PATH,
     });
     return;
@@ -72,11 +89,13 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
     sendJson(response, 200, {
       companion: {
         id: COMPANION_ID,
-        name: DEFAULT_COMPANION_PROFILE.name,
-        identity: DEFAULT_COMPANION_PROFILE.identity,
+        name: PROFILE.name,
+        identity: PROFILE.identity,
       },
       provider: providerName,
       emotion: runtime.getEmotion(OWNER_ID, COMPANION_ID),
+      governance: governance.snapshot(OWNER_ID),
+      audit: governance.audit().slice(-20),
       memories: storage.memory
         .list({ ownerId: OWNER_ID, companionId: COMPANION_ID })
         .filter((record) => record.validTo === undefined)
@@ -105,15 +124,40 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
       sendJson(response, 400, { error: "empty_message" });
       return;
     }
-    const result = await runtime.handleMessage({
-      ownerId: OWNER_ID,
-      companionId: COMPANION_ID,
-      conversationId: CONVERSATION_ID,
-      channel: "platform",
-      text: texts,
-      timezone: typeof body.timezone === "string" ? body.timezone : undefined,
-    });
-    sendJson(response, 200, result);
+    try {
+      const result = await runtime.handleMessage({
+        ownerId: OWNER_ID,
+        companionId: COMPANION_ID,
+        conversationId: CONVERSATION_ID,
+        channel: "platform",
+        text: texts,
+        timezone: typeof body.timezone === "string" ? body.timezone : undefined,
+      });
+      sendJson(response, 200, result);
+    } catch (error: unknown) {
+      if (error instanceof TurnBlockedError) {
+        sendJson(response, 429, {
+          error: "turn_blocked",
+          reason: error.reason,
+          detail: error.detail,
+        });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/v1/governance") {
+    const body = await readJson(request);
+    if (typeof body.paused === "boolean") {
+      if (body.paused) {
+        governance.pause("paused from the demo UI");
+      } else {
+        governance.resume();
+      }
+    }
+    sendJson(response, 200, governance.snapshot(OWNER_ID));
     return;
   }
 
@@ -156,7 +200,7 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
 
 server.listen(PORT, () => {
   console.log(`Isla is awake at http://127.0.0.1:${PORT}`);
-  console.log(`companion: ${DEFAULT_COMPANION_PROFILE.name} (sample persona)`);
+  console.log(`companion: ${PROFILE.name} (custom persona)`);
   console.log(`provider:  ${providerName}`);
   console.log(`data:      ${DB_PATH}`);
 });

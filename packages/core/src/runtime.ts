@@ -20,6 +20,12 @@ import { KeyedMutex } from "./mutex.js";
 import { PluginRegistry } from "./plugin.js";
 import type { CompanionProfile } from "./profile.js";
 import {
+  estimateRequestTokens,
+  estimateTokens,
+  Governance,
+  TurnBlockedError,
+} from "./governance.js";
+import {
   buildPromptSections,
   buildSummaryPrompt,
   joinPromptSections,
@@ -46,6 +52,7 @@ import type {
   StoredTurnMessage,
   SummaryRequest,
   TurnResult,
+  TurnTrace,
 } from "./types.js";
 
 /** Raised when a turn exceeds `turnTimeoutMs`. The caller decides whether to retry. */
@@ -94,6 +101,8 @@ export interface RuntimeLogger {
 export interface CompanionRuntimeOptions {
   /** Back all state with one object. Individual fields below override it. */
   storage?: CompanionStorage;
+  /** Budget, pause switch and audit trail. Without it, every turn is allowed. */
+  governance?: Governance;
   memory?: MemoryRepository;
   emotionStore?: EmotionStore;
   plugins?: PluginRegistry;
@@ -136,6 +145,7 @@ export class CompanionRuntime {
   readonly plugins: PluginRegistry;
   readonly history: ConversationHistorySource;
   readonly emotionStore: EmotionStore;
+  readonly governance: Governance | undefined;
   provider: ModelProvider;
   private readonly now: () => number;
   private readonly onTurnCompleted: CompanionRuntimeOptions["onTurnCompleted"];
@@ -159,6 +169,7 @@ export class CompanionRuntime {
     this.memory = options.memory ?? options.storage?.memory ?? new MemoryStore();
     this.emotionStore =
       options.emotionStore ?? options.storage?.emotion ?? new InMemoryEmotionStore();
+    this.governance = options.governance;
     this.plugins = options.plugins ?? new PluginRegistry();
     this.provider = options.provider ?? new DemoProvider();
     this.now = options.now ?? Date.now;
@@ -316,6 +327,16 @@ export class CompanionRuntime {
       history,
       ...(summary?.summary ? { summary: summary.summary } : {}),
     };
+    const inputTokens = estimateRequestTokens({
+      systemPrompt: request.systemPrompt,
+      history: request.history.map((message) => message.text),
+      userText: request.userText,
+    });
+    const decision = this.governance?.canStart({ ownerId: input.ownerId }, { inputTokens });
+    if (decision && !decision.allowed) {
+      this.governance?.recordBlocked(scope, decision.reason, decision.detail);
+      throw new TurnBlockedError(decision.reason, decision.detail);
+    }
     safeCall(() => this.onPromptBuilt?.({ scope, sections, request }), this.logger, "onPromptBuilt");
     const generationStartedAt = this.now();
     const response = await this.generateWithDeadline(request, input);
@@ -393,13 +414,32 @@ export class CompanionRuntime {
       nextEmotion,
     );
     await this.dispatch(input, messageId, userText, reply, createdMemories, emotionEvent);
+    const latencyMs = Math.max(0, repliedAt - generationStartedAt);
+    const outputTokens = estimateTokens(reply);
+    const cost =
+      this.governance?.recordTurn(scope, {
+        inputTokens,
+        outputTokens,
+        latencyMs,
+        provider: this.provider.name,
+      }) ?? 0;
+    const trace: TurnTrace = {
+      promptSections: sections.map((section) => section.id),
+      memoriesUsed: memories.length,
+      historyMessages: history.length,
+      inputTokens,
+      outputTokens,
+      cost,
+      latencyMs,
+      provider: this.provider.name,
+    };
     const result: TurnResult = {
       messageId,
       reply,
       messages,
       userMessages,
       debug: {
-        latencyMs: Math.max(0, repliedAt - generationStartedAt),
+        latencyMs,
         avoidQuestion: guard.avoidQuestion,
         recentQuestionEndings: guard.questionEndings,
         recentTurnsConsidered: guard.turnsConsidered,
@@ -418,6 +458,7 @@ export class CompanionRuntime {
       emotionEvent,
       userMessageAt: receivedAt,
       repliedAt,
+      trace,
     };
     if (copiedExample) {
       safeCall(

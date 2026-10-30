@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   CompanionRuntime,
+  Governance,
   PluginRegistry,
   ProactiveScheduler,
+  TurnBlockedError,
   TurnTimeoutError,
   type ModelProvider,
   type ModelRequest,
@@ -156,5 +158,36 @@ describe("behaviour evals", () => {
     assert.ok(safetyIndex > overrideIndex, "safety rules must come after the persona");
     assert.match(systemPrompt, /必须坦白你是 AI/u);
     assert.ok(runtime);
+  });
+
+  it("refuses to generate while governance is paused", async () => {
+    const governance = new Governance({ policy: { paused: true } });
+    const runtime = new CompanionRuntime({ governance, now: () => 1000 });
+    await assert.rejects(
+      runtime.handleMessage({
+        ownerId: "u1",
+        companionId: "isla",
+        conversationId: "c1",
+        channel: "platform",
+        text: "在吗",
+      }),
+      (error: unknown) => error instanceof TurnBlockedError && error.reason === "paused",
+    );
+  });
+
+  it("returns a trace with sections, tokens and provider", async () => {
+    const runtime = new CompanionRuntime({ now: () => 1000 });
+    const result = await runtime.handleMessage({
+      ownerId: "u1",
+      companionId: "isla",
+      conversationId: "c1",
+      channel: "platform",
+      text: "今天有点累",
+    });
+    assert.ok(result.trace.inputTokens > 0);
+    assert.ok(result.trace.outputTokens > 0);
+    assert.ok(result.trace.promptSections.includes("safety"));
+    assert.equal(result.trace.provider, "demo");
+    assert.ok(result.trace.latencyMs >= 0);
   });
 });

@@ -201,6 +201,24 @@ export interface TurnDebugInfo {
   embeddingsBackfilled: number;
 }
 
+/**
+ * A small, host-facing summary of one turn: what the model saw, what it cost, how long it took.
+ * `TurnDebugInfo` is for tests and prompt inspection; `TurnTrace` is for dashboards and budgets.
+ */
+export interface TurnTrace {
+  promptSections: string[];
+  memoriesUsed: number;
+  historyMessages: number;
+  /** Estimated input tokens (system prompt + history + current message). */
+  inputTokens: number;
+  /** Estimated output tokens (the reply). */
+  outputTokens: number;
+  /** Estimated cost in the governance policy's currency. 0 when no price is configured. */
+  cost: number;
+  latencyMs: number;
+  provider: string;
+}
+
 export interface TurnResult {
   messageId: string;
   /** All bubbles joined with newlines (kept for older clients). */
@@ -221,4 +239,6 @@ export interface TurnResult {
   userMessageAt: number;
   /** Timestamp for the reply (generation completed); always later than userMessageAt. */
   repliedAt: number;
+  /** What this turn saw and cost; safe to log or show in a dashboard. */
+  trace: TurnTrace;
 }

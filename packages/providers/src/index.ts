@@ -50,6 +50,8 @@ export interface ProviderOptions {
   model?: string;
   embeddingModel?: string;
   timeoutMs?: number;
+  /** Explicit reply cap; some gateways otherwise default it to the whole context window. */
+  maxTokens?: number;
 }
 
 export class ProviderConfigError extends Error {
@@ -86,6 +88,7 @@ export function createProvider(options: ProviderOptions = {}): ModelProvider {
     apiKey: options.apiKey ?? "local",
     ...(options.embeddingModel ? { embeddingModel: options.embeddingModel } : {}),
     ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
+    ...(options.maxTokens !== undefined ? { maxTokens: options.maxTokens } : {}),
   });
 }
 
@@ -105,12 +108,14 @@ export function providerFromEnv(
     raw === "openai" || raw === "deepseek" || raw === "ollama" || raw === "lmstudio"
       ? raw
       : "openai-compatible";
+  const maxTokens = Number(env.ISLA_MAX_TOKENS);
   return createProvider({
     kind,
     ...(env.ISLA_BASE_URL ? { baseUrl: env.ISLA_BASE_URL } : {}),
     ...(env.ISLA_API_KEY ? { apiKey: env.ISLA_API_KEY } : {}),
     ...(env.ISLA_MODEL ? { model: env.ISLA_MODEL } : {}),
     ...(env.ISLA_EMBEDDING_MODEL ? { embeddingModel: env.ISLA_EMBEDDING_MODEL } : {}),
+    ...(Number.isFinite(maxTokens) && maxTokens > 0 ? { maxTokens } : {}),
   });
 }
 

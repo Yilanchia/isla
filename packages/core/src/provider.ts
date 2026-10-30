@@ -96,8 +96,11 @@ export function mergeConsecutiveRoles(messages: ChatMessage[]): ChatMessage[] {
 }
 
 class ModelHttpError extends Error {
-  constructor(readonly status: number) {
-    super(`Model request failed with status ${status}`);
+  constructor(
+    readonly status: number,
+    readonly detail = "",
+  ) {
+    super(`Model request failed with status ${status}${detail ? `: ${detail}` : ""}`);
   }
 }
 
@@ -107,6 +110,14 @@ export interface OpenAICompatibleProviderOptions {
   model: string;
   embeddingModel?: string;
   timeoutMs?: number;
+  /**
+   * Upper bound for one reply, in tokens.
+   *
+   * Some OpenAI-compatible gateways default `max_tokens` to the model's whole
+   * sequence window, so any non-trivial prompt then trips `max_tokens + prompt >
+   * max_seq_len`. Sending an explicit value keeps the request valid.
+   */
+  maxTokens?: number;
 }
 
 interface ChatCompletionResponse {
@@ -227,11 +238,15 @@ export class OpenAICompatibleProvider implements ModelProvider {
           model: this.options.model,
           temperature,
           messages,
+          ...(this.options.maxTokens && this.options.maxTokens > 0
+            ? { max_tokens: this.options.maxTokens }
+            : {}),
         }),
         signal: signal ? AbortSignal.any([signal, controller.signal]) : controller.signal,
       });
       if (!response.ok) {
-        throw new ModelHttpError(response.status);
+        const detail = (await response.text().catch(() => "")).slice(0, 300);
+        throw new ModelHttpError(response.status, detail);
       }
       const payload = (await response.json()) as ChatCompletionResponse;
       const text = payload.choices?.[0]?.message?.content?.trim();

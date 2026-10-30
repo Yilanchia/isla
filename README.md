@@ -32,6 +32,9 @@ reply is paced, and when the companion is allowed to reach out.
 - **Proactivity** — a scheduler with consent, quiet hours, a daily cap and a cooldown. Off by
   default.
 - **Plugins** — an event bus that isolates failures, so a bad plugin cannot break a turn.
+- **Governance** — per-turn and per-day token/cost budgets, a pause switch, and an audit log.
+  Every turn returns a trace of sections, tokens, cost and latency. See
+  [docs/governance.md](docs/governance.md).
 
 ## Packages
 
@@ -40,6 +43,8 @@ reply is paced, and when the companion is allowed to reach out.
 | `@isla/core` | The runtime. No network, filesystem, clock or database of its own. |
 | `@isla/store-sqlite` | SQLite persistence via Node's built-in `node:sqlite`. |
 | `@isla/providers` | OpenAI-compatible, DeepSeek, Ollama, LM Studio, plus the offline demo. |
+| `@isla/personas` | Example personas used by the demo and the QQ service. Replace before shipping. |
+| `apps/qq-service` | Authenticated multi-session HTTP adapter for the QQ transport. |
 | `examples/local` | A single-user web chat with a memory and emotion panel. |
 | `evals` | Behavioural checks that run in CI. |
 

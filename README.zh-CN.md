@@ -124,6 +124,27 @@ plugins.register({
 
 插件 `throw` 只会被记录，不会让这一轮对话失败。跨插件 `emit` 需要 `message:send` 权限，并限制递归深度。
 
+### 7. 治理
+
+预算、暂停、审计，是运行时的一部分，不是应用层的补丁。详见 [docs/governance.md](docs/governance.md)。
+
+```ts
+const governance = new Governance({
+  policy: {
+    maxInputTokensPerTurn: 12_000,
+    maxTokensPerDay: 200_000,
+    pricePerMillionInputTokens: 2,
+    pricePerMillionOutputTokens: 8,
+  },
+});
+
+const runtime = new CompanionRuntime({ storage, provider, governance });
+// 暂停后任何调用都会抛 TurnBlockedError
+governance.pause("maintenance");
+```
+
+每轮返回的 `turn.trace` 里有 prompt 用了哪些 section、多少 token、多少成本、耗时。
+
 ---
 
 ## 嵌入到你的程序

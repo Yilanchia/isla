@@ -1,5 +1,6 @@
 export * from "./default-profile.js";
 export * from "./emotion.js";
+export * from "./governance.js";
 export * from "./history.js";
 export * from "./memory.js";
 export * from "./mutex.js";

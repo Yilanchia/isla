@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0 — unreleased
+
+Governance, traces, and a second transport.
+
+- `@isla/core`: `Governance` with per-turn/per-day token and cost budgets, a pause switch and an
+  audit log; `TurnBlockedError`; `TurnResult.trace` with prompt sections, token estimates, cost
+  and latency.
+- `@isla/providers`: optional `maxTokens`; model errors now include a short response body.
+- `@isla/personas`: example persona package (Rei Ayanami) used by the demo and the QQ service.
+- `apps/qq-service`: authenticated multi-session HTTP adapter for the QQ transport.
+- `examples/local`: a "this turn" trace panel and a pause button.
+- `docs/governance.md`, `POSITIONING.md`.
+- Tests: 79 total.
+
 ## 0.1.0 — unreleased
 
 The first cut: a headless companion runtime, a SQLite adapter, model providers and a local demo.
