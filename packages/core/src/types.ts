@@ -138,6 +138,8 @@ export interface ModelResponse {
   text: string;
   emotionEvent?: EmotionEvent | undefined;
   memoryCandidates?: MemoryCandidate[] | undefined;
+  /** Real token usage from the provider, when it returns one. */
+  usage?: { inputTokens: number; outputTokens: number } | undefined;
 }
 
 export interface ModelProvider {
@@ -215,6 +217,8 @@ export interface TurnTrace {
   outputTokens: number;
   /** Estimated cost in the governance policy's currency. 0 when no price is configured. */
   cost: number;
+  /** Whether the token counts came from the provider or from `estimateTokens()`. */
+  usageSource: "provider" | "estimated";
   latencyMs: number;
   provider: string;
 }

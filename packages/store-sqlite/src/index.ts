@@ -16,6 +16,8 @@ import {
   type ProactiveJob,
   type ProactiveStore,
   type RetrievedMemory,
+  type UsageSnapshot,
+  type UsageStore,
 } from "@isla/core";
 
 /**
@@ -31,6 +33,7 @@ export interface SqliteStorage extends CompanionStorage {
   readonly history: SqliteHistoryStore;
   readonly emotion: SqliteEmotionStore;
   readonly proactive: SqliteProactiveStore;
+  readonly usage: SqliteUsageStore;
   /** Closes the underlying database. */
   close(): void;
 }
@@ -50,6 +53,7 @@ export function openSqliteStorage(options: OpenSqliteOptions): SqliteStorage {
     history: new SqliteHistoryStore(db),
     emotion: new SqliteEmotionStore(db),
     proactive: new SqliteProactiveStore(db),
+    usage: new SqliteUsageStore(db),
     close: () => db.close(),
   };
 }
@@ -119,6 +123,14 @@ function migrate(db: DatabaseSync): void {
       sent_at INTEGER
     );
     CREATE INDEX IF NOT EXISTS proactive_owner ON proactive_jobs(owner_id, status, due_at);
+
+    CREATE TABLE IF NOT EXISTS usage (
+      owner_id TEXT NOT NULL,
+      day TEXT NOT NULL,
+      tokens INTEGER NOT NULL,
+      cost REAL NOT NULL,
+      PRIMARY KEY (owner_id, day)
+    );
   `);
 }
 
@@ -516,6 +528,33 @@ export class SqliteProactiveStore implements ProactiveStore {
         job.createdAt,
         job.sentAt ?? null,
       );
+  }
+}
+
+export class SqliteUsageStore implements UsageStore {
+  private readonly db: DatabaseSync;
+
+  constructor(db: DatabaseSync) {
+    this.db = db;
+  }
+
+  get(ownerId: string, day: string): UsageSnapshot | undefined {
+    const row = this.db
+      .prepare("SELECT tokens, cost FROM usage WHERE owner_id = ? AND day = ?")
+      .get(ownerId, day) as Row | undefined;
+    return row ? { tokens: number(row.tokens), cost: number(row.cost) } : undefined;
+  }
+
+  set(ownerId: string, day: string, usage: UsageSnapshot): void {
+    this.db
+      .prepare(
+        `INSERT INTO usage (owner_id, day, tokens, cost)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(owner_id, day) DO UPDATE SET
+           tokens = excluded.tokens,
+           cost = excluded.cost`,
+      )
+      .run(ownerId, day, usage.tokens, usage.cost);
   }
 }
 

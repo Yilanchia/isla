@@ -7,6 +7,9 @@ Governance, traces, and a second transport.
 - `@isla/core`: `Governance` with per-turn/per-day token and cost budgets, a pause switch and an
   audit log; `TurnBlockedError`; `TurnResult.trace` with prompt sections, token estimates, cost
   and latency.
+- `@isla/core`: daily usage persists through `UsageStore`; provider-reported token usage wins
+  over the estimate, marked by `trace.usageSource`.
+- `@isla/store-sqlite`: `usage` table for governance counters.
 - `@isla/providers`: optional `maxTokens`; model errors now include a short response body.
 - `apps/qq-service`: authenticated multi-session HTTP adapter for the QQ transport.
 - `examples/local`: a "this turn" trace panel and a pause button.

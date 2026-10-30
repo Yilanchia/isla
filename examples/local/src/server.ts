@@ -36,6 +36,7 @@ const PROFILE = DEFAULT_COMPANION_PROFILE;
 
 // Demo budgets. Prices are illustrative, not a quote from any provider.
 const governance = new Governance({
+  usageStore: storage.usage,
   policy: {
     maxInputTokensPerTurn: 12_000,
     maxTokensPerDay: 200_000,

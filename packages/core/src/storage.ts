@@ -3,6 +3,7 @@ import {
   type ConversationHistorySource,
   type ConversationScope,
 } from "./history.js";
+import { InMemoryUsageStore, type UsageStore } from "./governance.js";
 import { MemoryStore, type MemoryRepository } from "./memory.js";
 import type { ProactiveStore } from "./scheduler.js";
 import type { EmotionState } from "./types.js";
@@ -63,12 +64,15 @@ export interface CompanionStorage {
   history: ConversationHistorySource;
   emotion: EmotionStore;
   proactive?: ProactiveStore;
+  /** Optional: when present, `Governance` can persist daily budgets across restarts. */
+  usage?: UsageStore;
 }
 
 export class InMemoryStorage implements CompanionStorage {
   readonly memory = new MemoryStore();
   readonly history = new InMemoryHistorySource();
   readonly emotion = new InMemoryEmotionStore();
+  readonly usage = new InMemoryUsageStore();
 }
 
 export function keyOf(scope: EmotionScope | ConversationScope): string {

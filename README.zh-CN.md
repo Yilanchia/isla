@@ -143,7 +143,8 @@ const runtime = new CompanionRuntime({ storage, provider, governance });
 governance.pause("maintenance");
 ```
 
-每轮返回的 `turn.trace` 里有 prompt 用了哪些 section、多少 token、多少成本、耗时。
+每轮返回的 `turn.trace` 里有 prompt 用了哪些 section、多少 token、多少成本、耗时。日用量通过
+`UsageStore` 落盘（SQLite 适配器已实现），重启后继续累计；provider 返回真实 `usage` 时优先使用。
 
 ---
 

@@ -5,6 +5,8 @@ import {
   CompanionRuntime,
   DEFAULT_COMPANION_ID,
   DEFAULT_COMPANION_PROFILE,
+  Governance,
+  TurnBlockedError,
   type ConversationScope,
 } from "@isla/core";
 import { describeProvider, providerFromEnv } from "@isla/providers";
@@ -22,8 +24,21 @@ const MAX_BODY = 1_000_000;
 mkdirSync(dirname(DATA_PATH), { recursive: true });
 const storage = openSqliteStorage({ path: DATA_PATH });
 
+const governance = new Governance({
+  usageStore: storage.usage,
+  policy: {
+    maxInputTokensPerTurn: Number(process.env.ISLA_MAX_INPUT_TOKENS ?? 12_000),
+    maxTokensPerDay: Number(process.env.ISLA_MAX_TOKENS_PER_DAY ?? 200_000),
+    pricePerMillionInputTokens: Number(process.env.ISLA_PRICE_IN ?? 0),
+    pricePerMillionOutputTokens: Number(process.env.ISLA_PRICE_OUT ?? 0),
+    expectedOutputTokens: Number(process.env.ISLA_EXPECTED_OUTPUT_TOKENS ?? 512),
+    timezone: process.env.ISLA_TIMEZONE ?? "Asia/Shanghai",
+  },
+});
+
 const runtime = new CompanionRuntime({
   storage,
+  governance,
   provider: providerFromEnv(),
   profiles: {
     get: (id) =>
@@ -96,6 +111,7 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
         identity: DEFAULT_COMPANION_PROFILE.identity,
       },
       emotion: runtime.getEmotion(OWNER_ID, COMPANION_ID),
+      governance: governance.snapshot(OWNER_ID),
       memories: storage.memory
         .list({ ownerId: OWNER_ID, companionId: COMPANION_ID })
         .filter((record) => record.validTo === undefined),
@@ -159,9 +175,32 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
         trace: result.trace,
         debug: result.debug,
       });
+    } catch (error: unknown) {
+      if (error instanceof TurnBlockedError) {
+        sendJson(response, 429, {
+          error: "turn_blocked",
+          reason: error.reason,
+          detail: error.detail,
+        });
+        return;
+      }
+      throw error;
     } finally {
       clearTimeout(timer);
     }
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/v1/governance") {
+    const body = await readJson(request);
+    if (typeof body.paused === "boolean") {
+      if (body.paused) {
+        governance.pause("paused from the qq service");
+      } else {
+        governance.resume();
+      }
+    }
+    sendJson(response, 200, governance.snapshot(OWNER_ID));
     return;
   }
 

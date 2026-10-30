@@ -122,6 +122,12 @@ export interface OpenAICompatibleProviderOptions {
 
 interface ChatCompletionResponse {
   choices?: Array<{ message?: { content?: string } }>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
+}
+
+interface ChatResult {
+  text: string;
+  usage?: { inputTokens: number; outputTokens: number };
 }
 
 interface EmbeddingResponse {
@@ -141,7 +147,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
   }
 
   async generate(request: ModelRequest): Promise<ModelResponse> {
-    const text = await this.complete(
+    const result = await this.complete(
       [
         { role: "system", content: `${request.systemPrompt}\n${emotionProtocol}` },
         ...historyToChatMessages(request.history ?? []),
@@ -152,18 +158,20 @@ export class OpenAICompatibleProvider implements ModelProvider {
       0.8,
       request.signal,
     );
-    return parseCompanionModelContent(text);
+    const parsed = parseCompanionModelContent(result.text);
+    return result.usage ? { ...parsed, usage: result.usage } : parsed;
   }
 
   async summarize(request: SummaryRequest): Promise<string> {
     const prompt = buildSummaryPrompt(request);
-    return this.complete(
+    const result = await this.complete(
       [
         { role: "system", content: prompt.system },
         { role: "user", content: prompt.user },
       ],
       0.3,
     );
+    return result.text;
   }
 
   async embed(texts: string[], signal?: AbortSignal): Promise<number[][]> {
@@ -208,7 +216,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
     messages: ChatMessage[],
     temperature: number,
     signal?: AbortSignal,
-  ): Promise<string> {
+  ): Promise<ChatResult> {
     try {
       return await this.send(messages, temperature, signal);
     } catch (error: unknown) {
@@ -224,7 +232,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
     messages: ChatMessage[],
     temperature: number,
     signal?: AbortSignal,
-  ): Promise<string> {
+  ): Promise<ChatResult> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs);
     try {
@@ -253,7 +261,16 @@ export class OpenAICompatibleProvider implements ModelProvider {
       if (!text) {
         throw new Error("Model response did not contain message content");
       }
-      return text;
+      const usage = payload.usage;
+      return usage
+        ? {
+            text,
+            usage: {
+              inputTokens: usage.prompt_tokens ?? 0,
+              outputTokens: usage.completion_tokens ?? 0,
+            },
+          }
+        : { text };
     } finally {
       clearTimeout(timeout);
     }

@@ -87,13 +87,18 @@ interface TurnTrace {
 - 真实 token 数取决于模型的分词器，通常差 10–30%。
 - 成本按配置的单价计算，不会去查模型价格表。
 
-要精确计费，接 provider 返回的 `usage`（OpenAI 兼容接口在 `response.usage`），把真实值写进审计。当前版本没做，是因为不同网关的 `usage` 字段不一致，先保证「不会失控」，再谈「精确」。
+要精确计费，接 provider 返回的 `usage`：OpenAI 兼容 provider 会读取 `response.usage`，runtime
+优先使用真实 token 数，并用 `trace.usageSource` 标明是 `provider` 还是 `estimated`。没有 `usage`
+的网关仍然回退到估算。
 
 ---
 
 ## 审计
 
-默认 `MemoryAuditSink` 保留最近 500 条，进程重启即丢。生产环境应该实现 `AuditSink` 写 SQLite / 日志 / SIEM：
+默认 `MemoryAuditSink` 保留最近 500 条，进程重启即丢。日用量则通过 `UsageStore` 持久化：
+`@isla/store-sqlite` 的 `usage` 表会保存每个 owner 每天的 tokens 和 cost，重启后继续累计。
+
+生产环境应该实现 `AuditSink` 写 SQLite / 日志 / SIEM：
 
 ```ts
 interface AuditSink {
@@ -118,7 +123,7 @@ interface AuditSink {
 ## 边界
 
 - **不替宿主做认证**：谁能调 `handleMessage` 仍由宿主决定。
-- **不做分布式预算**：日用量在进程内，多实例会各算各的。多实例需要把 `usage` 放到 Redis/Postgres。
+- **不做分布式预算**：日用量通过 `UsageStore` 落在本地（SQLite 已实现），但多实例仍会各算各的；需要共享预算时把 `UsageStore` 换成 Redis/Postgres 实现。
 - **不拦后台任务**：摘要任务目前不受治理层约束（它不直接面向用户）。这是已知缺口，0.3 会补。
 - **暂停不影响已写入的消息**：暂停只拦「生成」，不删历史。
 
@@ -126,7 +131,7 @@ interface AuditSink {
 
 ## 下一步
 
-- [ ] 把 `usage` 落到 `CompanionStorage`，支持重启后累计
-- [ ] 接真实 provider usage，替换估算
+- [ ] 多实例共享预算（Redis/Postgres 版 `UsageStore`）
 - [ ] 治理摘要/主动消息任务
-- [ ] 审计导出（JSONL / SQLite）
+- [ ] 审计导出（JSONL / SQLite）与保留策略
+- [ ] 按功能分账（聊天 / 摘要 / 主动消息）

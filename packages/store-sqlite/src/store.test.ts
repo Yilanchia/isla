@@ -80,4 +80,15 @@ describe("sqlite storage", () => {
     assert.equal(storage.history.recentMessages(scope, 10).length, 0);
     storage.close();
   });
+
+  it("persists governance usage counters", () => {
+    const path = join(directory, "usage.sqlite");
+    const first = openSqliteStorage({ path });
+    first.usage.set("u1", "2026-10-30", { tokens: 1000, cost: 0.5 });
+    first.close();
+
+    const second = openSqliteStorage({ path });
+    assert.deepEqual(second.usage.get("u1", "2026-10-30"), { tokens: 1000, cost: 0.5 });
+    second.close();
+  });
 });

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   DEFAULT_GOVERNANCE_POLICY,
   Governance,
+  InMemoryUsageStore,
   MemoryAuditSink,
   estimateRequestTokens,
   estimateTokens,
@@ -101,5 +102,20 @@ describe("Governance", () => {
         userText: "在吗",
       }) > 0,
     );
+  });
+
+  it("persists daily usage through the usage store", () => {
+    const usageStore = new InMemoryUsageStore();
+    const first = new Governance({ usageStore, now: () => NOW });
+    first.recordTurn(scope, {
+      inputTokens: 100,
+      outputTokens: 50,
+      latencyMs: 1,
+      provider: "test",
+    });
+
+    // A new instance (a restart) sees the same counters.
+    const second = new Governance({ usageStore, now: () => NOW });
+    assert.equal(second.usageFor("user-a").tokens, 150);
   });
 });

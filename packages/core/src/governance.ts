@@ -102,6 +102,33 @@ export class MemoryAuditSink implements AuditSink {
   }
 }
 
+export interface UsageSnapshot {
+  tokens: number;
+  cost: number;
+}
+
+/**
+ * Where the daily usage counters live. Implement it to survive a restart (the SQLite adapter
+ * does) or to share a budget between processes (a future Redis adapter).
+ */
+export interface UsageStore {
+  get(ownerId: string, day: string): UsageSnapshot | undefined;
+  set(ownerId: string, day: string, usage: UsageSnapshot): void;
+}
+
+export class InMemoryUsageStore implements UsageStore {
+  private readonly rows = new Map<string, UsageSnapshot>();
+
+  get(ownerId: string, day: string): UsageSnapshot | undefined {
+    const row = this.rows.get(`${ownerId}\u0000${day}`);
+    return row ? { ...row } : undefined;
+  }
+
+  set(ownerId: string, day: string, usage: UsageSnapshot): void {
+    this.rows.set(`${ownerId}\u0000${day}`, { ...usage });
+  }
+}
+
 export interface DayUsage {
   day: string;
   tokens: number;
@@ -111,6 +138,7 @@ export interface DayUsage {
 export interface GovernanceOptions {
   policy?: Partial<GovernancePolicy>;
   sink?: AuditSink;
+  usageStore?: UsageStore;
   now?: () => number;
 }
 
@@ -131,12 +159,14 @@ export class TurnBlockedError extends Error {
 export class Governance {
   private current: GovernancePolicy;
   private readonly sink: AuditSink;
+  private readonly usageStore: UsageStore | undefined;
   private readonly now: () => number;
   private readonly days = new Map<string, DayUsage>();
 
   constructor(options: GovernanceOptions = {}) {
     this.current = { ...DEFAULT_GOVERNANCE_POLICY, ...options.policy };
     this.sink = options.sink ?? new MemoryAuditSink();
+    this.usageStore = options.usageStore;
     this.now = options.now ?? Date.now;
   }
 
@@ -212,13 +242,15 @@ export class Governance {
   /** Records a finished turn and returns its estimated cost. */
   recordTurn(scope: { ownerId: string; companionId: string }, usage: TurnUsage): number {
     const cost = this.estimateCost(usage);
-    const day = this.dayKey();
-    const current = this.days.get(scope.ownerId);
-    const next: DayUsage =
-      current && current.day === day
-        ? { day, tokens: current.tokens + usage.inputTokens + usage.outputTokens, cost: current.cost + cost }
-        : { day, tokens: usage.inputTokens + usage.outputTokens, cost };
+    const current = this.usageFor(scope.ownerId);
+    const day = current.day;
+    const next: DayUsage = {
+      day,
+      tokens: current.tokens + usage.inputTokens + usage.outputTokens,
+      cost: current.cost + cost,
+    };
     this.days.set(scope.ownerId, next);
+    this.usageStore?.set(scope.ownerId, day, { tokens: next.tokens, cost: next.cost });
     this.record({
       type: "turn.completed",
       ownerId: scope.ownerId,
@@ -244,8 +276,16 @@ export class Governance {
 
   usageFor(ownerId: string): DayUsage {
     const day = this.dayKey();
-    const usage = this.days.get(ownerId);
-    return usage && usage.day === day ? { ...usage } : { day, tokens: 0, cost: 0 };
+    const cached = this.days.get(ownerId);
+    if (cached && cached.day === day) {
+      return { ...cached };
+    }
+    const stored = this.usageStore?.get(ownerId, day);
+    const usage: DayUsage = stored
+      ? { day, tokens: stored.tokens, cost: stored.cost }
+      : { day, tokens: 0, cost: 0 };
+    this.days.set(ownerId, usage);
+    return { ...usage };
   }
 
   estimateCost(usage: TokenUsage): number {

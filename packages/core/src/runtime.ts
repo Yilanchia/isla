@@ -327,12 +327,15 @@ export class CompanionRuntime {
       history,
       ...(summary?.summary ? { summary: summary.summary } : {}),
     };
-    const inputTokens = estimateRequestTokens({
+    const estimatedInputTokens = estimateRequestTokens({
       systemPrompt: request.systemPrompt,
       history: request.history.map((message) => message.text),
       userText: request.userText,
     });
-    const decision = this.governance?.canStart({ ownerId: input.ownerId }, { inputTokens });
+    const decision = this.governance?.canStart(
+      { ownerId: input.ownerId },
+      { inputTokens: estimatedInputTokens },
+    );
     if (decision && !decision.allowed) {
       this.governance?.recordBlocked(scope, decision.reason, decision.detail);
       throw new TurnBlockedError(decision.reason, decision.detail);
@@ -415,7 +418,9 @@ export class CompanionRuntime {
     );
     await this.dispatch(input, messageId, userText, reply, createdMemories, emotionEvent);
     const latencyMs = Math.max(0, repliedAt - generationStartedAt);
-    const outputTokens = estimateTokens(reply);
+    const usageSource = response.usage ? "provider" : "estimated";
+    const inputTokens = response.usage?.inputTokens ?? estimatedInputTokens;
+    const outputTokens = response.usage?.outputTokens ?? estimateTokens(reply);
     const cost =
       this.governance?.recordTurn(scope, {
         inputTokens,
@@ -430,6 +435,7 @@ export class CompanionRuntime {
       inputTokens,
       outputTokens,
       cost,
+      usageSource,
       latencyMs,
       provider: this.provider.name,
     };

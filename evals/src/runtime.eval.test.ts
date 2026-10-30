@@ -188,6 +188,24 @@ describe("behaviour evals", () => {
     assert.ok(result.trace.outputTokens > 0);
     assert.ok(result.trace.promptSections.includes("safety"));
     assert.equal(result.trace.provider, "demo");
+    assert.equal(result.trace.usageSource, "estimated");
     assert.ok(result.trace.latencyMs >= 0);
+  });
+
+  it("prefers provider-reported usage over estimates", async () => {
+    const provider = scriptedProvider([
+      { text: "好的。", usage: { inputTokens: 123, outputTokens: 45 } },
+    ]);
+    const runtime = new CompanionRuntime({ provider, now: () => 1000 });
+    const result = await runtime.handleMessage({
+      ownerId: "u1",
+      companionId: "isla",
+      conversationId: "c1",
+      channel: "platform",
+      text: "在吗",
+    });
+    assert.equal(result.trace.inputTokens, 123);
+    assert.equal(result.trace.outputTokens, 45);
+    assert.equal(result.trace.usageSource, "provider");
   });
 });
