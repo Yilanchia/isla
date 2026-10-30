@@ -83,6 +83,45 @@ describe("OpenAICompatibleProvider", () => {
     }
   });
 
+  it("reads token usage from the provider response", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "好。" } }],
+          usage: { prompt_tokens: 120, completion_tokens: 30 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+
+    try {
+      const provider = new OpenAICompatibleProvider({
+        baseUrl: "https://example.com/v1",
+        apiKey: "test-key",
+        model: "test-model",
+      });
+      const result = await provider.generate({
+        userText: "你好",
+        systemPrompt: "s",
+        memories: [],
+        emotion: {
+          pleasure: 0.1,
+          arousal: 0,
+          dominance: 0,
+          trust: 0,
+          bonding: 0,
+          energy: 0.7,
+          updatedAt: 1,
+        },
+        history: [],
+      });
+      assert.equal(result.text, "好。");
+      assert.deepEqual(result.usage, { inputTokens: 120, outputTokens: 30 });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("requests semantic embeddings and restores the provider order", async () => {
     const originalFetch = globalThis.fetch;
     let requestUrl = "";

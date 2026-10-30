@@ -147,6 +147,20 @@ governance.pause("maintenance");
 `UsageStore` 落盘（SQLite 适配器已实现），重启后继续累计；provider 返回真实 `usage` 时优先使用。
 摘要任务走独立的后台预算 `maxBackgroundTokensPerDay`，不占单轮额度。
 
+### 8. 任务闭环
+
+不是 agent 框架，是一个可验证的重试循环：`Task` + `TaskExecutor` + `Verifier` + `Artifact`。
+没有 verifier 的任务不自动重试。详见 [docs/tasks.md](docs/tasks.md)。
+
+```ts
+const runner = new TaskRunner({
+  executor: { execute: ({ task, attempts }) => agent.propose(task.goal, attempts) },
+  verifier: { name: "pytest", check: (artifact) => runTests(artifact.content) },
+  canStart: () => governance.canStartBackground(ownerId, 1000).allowed,
+});
+const run = await runner.run({ id: "fix-123", goal: "Fix the failing test", maxAttempts: 3 });
+```
+
 ---
 
 ## 嵌入到你的程序

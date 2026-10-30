@@ -13,5 +13,6 @@ export * from "./runtime.js";
 export * from "./scheduler.js";
 export * from "./storage.js";
 export * from "./style-guards.js";
+export * from "./task.js";
 export * from "./time.js";
 export * from "./types.js";

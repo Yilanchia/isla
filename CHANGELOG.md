@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — unreleased
+
+Task loops.
+
+- `@isla/core`: `TaskRunner` with `Task` / `TaskExecutor` / `Verifier` / `Artifact`; a bounded
+  verify-retry loop with cancellation, `canStart` gating and `onAttempt` callbacks.
+- `docs/tasks.md`: the four primitives, a worked example, and why the verifier is the trust anchor.
+
 ## 0.2.0 — unreleased
 
 Governance, traces, and a second transport.

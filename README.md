@@ -35,6 +35,8 @@ reply is paced, and when the companion is allowed to reach out.
 - **Governance** — per-turn and per-day token/cost budgets, a pause switch, and an audit log.
   Every turn returns a trace of sections, tokens, cost and latency. See
   [docs/governance.md](docs/governance.md).
+- **Tasks** — a bounded verify-retry loop (`TaskRunner`) for code, notes, CAD or any artifact a
+  host can check automatically. See [docs/tasks.md](docs/tasks.md).
 
 ## Packages
 
