@@ -147,7 +147,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
   }
 
   async generate(request: ModelRequest): Promise<ModelResponse> {
-    const result = await this.complete(
+    const result = await this.chat(
       [
         { role: "system", content: `${request.systemPrompt}\n${emotionProtocol}` },
         ...historyToChatMessages(request.history ?? []),
@@ -164,7 +164,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
 
   async summarize(request: SummaryRequest): Promise<string> {
     const prompt = buildSummaryPrompt(request);
-    const result = await this.complete(
+    const result = await this.chat(
       [
         { role: "system", content: prompt.system },
         { role: "user", content: prompt.user },
@@ -211,8 +211,21 @@ export class OpenAICompatibleProvider implements ModelProvider {
     }
   }
 
+  /** Plain system + user completion, for callers that build their own prompt (e.g. a life's mind). */
+  async complete(request: { system: string; user: string; signal?: AbortSignal }): Promise<string> {
+    const result = await this.chat(
+      [
+        { role: "system", content: request.system },
+        { role: "user", content: request.user },
+      ],
+      0.7,
+      request.signal,
+    );
+    return result.text;
+  }
+
   /** Sends the chat; if the endpoint rejects consecutive same-role messages (400), retries merged. */
-  private async complete(
+  private async chat(
     messages: ChatMessage[],
     temperature: number,
     signal?: AbortSignal,

@@ -15,25 +15,6 @@ importers:
         specifier: ^5.8.3
         version: 5.8.3
 
-  apps/qq-service:
-    dependencies:
-      '@isla/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@isla/providers':
-        specifier: workspace:*
-        version: link:../../packages/providers
-      '@isla/store-sqlite':
-        specifier: workspace:*
-        version: link:../../packages/store-sqlite
-    devDependencies:
-      '@types/node':
-        specifier: ^24.8.0
-        version: 24.19.2
-      typescript:
-        specifier: ^5.8.3
-        version: 5.8.3
-
   evals:
     dependencies:
       '@isla/core':
@@ -42,6 +23,22 @@ importers:
       '@isla/providers':
         specifier: workspace:*
         version: link:../packages/providers
+    devDependencies:
+      '@types/node':
+        specifier: ^24.8.0
+        version: 24.19.2
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+
+  examples/life:
+    dependencies:
+      '@isla/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@isla/life':
+        specifier: workspace:*
+        version: link:../../packages/life
     devDependencies:
       '@types/node':
         specifier: ^24.8.0
@@ -71,6 +68,22 @@ importers:
 
   packages/core:
     dependencies:
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^24.8.0
+        version: 24.19.2
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+
+  packages/life:
+    dependencies:
+      '@isla/core':
+        specifier: workspace:*
+        version: link:../core
       zod:
         specifier: ^3.25.76
         version: 3.25.76

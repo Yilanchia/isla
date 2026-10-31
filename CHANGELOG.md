@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.0 — unreleased
+
+The life kernel. Isla stops describing a character in a prompt and starts giving one a life.
+
+- `@isla/life` (new): `Life` with a heartbeat that runs between conversations; an append-only
+  `LifeEvent` log whose fold is the state (`replay()` rebuilds it exactly); drives (curiosity,
+  expression, connection), energy and sleep; feelings computed by the kernel; tastes that become
+  beliefs about herself; a nightly diary; `explain()` / `narrate()` to trace any event back.
+- `@isla/life`: a replaceable `Mind`. `InnerMind` needs no model and can only arrange facts;
+  `ModelMind` wraps any text model. Every reply records the fact ids it rests on and the ids a
+  mind made up. Paid minds have a daily budget and fall back to the inner mind.
+- `@isla/life`: `Genome` instead of a persona card; a small `World` (window, weather, books);
+  `FileArchive` keeps a life in one JSON Lines file; long outages become a `lapsed` event.
+- `@isla/life`: fixed crisis reply on self-harm messages, awake or asleep, whatever the mind.
+- `@isla/core`: `OpenAICompatibleProvider.complete({ system, user })`.
+- `examples/life`: a life on this machine's clock, with `--fast <hours>`, `/why` and `/state`.
+- `apps/qq-service` removed.
+- `docs/life-kernel.md`; `POSITIONING.md` rewritten.
+- Milestone "a day alone" passes (`packages/life/src/life.test.ts`).
+
 ## 0.3.0 — unreleased
 
 Task loops.
