@@ -24,6 +24,11 @@ export const IDLE_COST_PER_HOUR = 0.04;
 /** Energy recovered per hour of sleep. */
 export const SLEEP_RECOVERY_PER_HOUR = 0.11;
 
+/** How many unread things a shelf holds before the oldest falls off. */
+export const SHELF_SIZE = 40;
+/** How many items per shelf she remembers having been through, for the host's dedup. */
+export const SEEN_SIZE = 500;
+
 const MOOD_HALF_LIFE_MS = 3 * HOUR;
 const AROUSAL_HALF_LIFE_MS = 1.5 * HOUR;
 
@@ -54,6 +59,18 @@ export interface Belief {
   confidence: number;
   eventId: string;
   at: number;
+}
+
+/** Something on a shelf she has not got to yet. */
+export interface ShelfItem {
+  stockedId: string;
+  item: string;
+  title: string;
+  text: string;
+  tags: string[];
+  source: string;
+  at: number;
+  link?: string;
 }
 
 /** The current note on one topic about one person. */
@@ -103,6 +120,10 @@ export interface LifeState {
   beliefs: Record<string, Belief>;
   /** Next passage index per book. */
   reading: Record<string, number>;
+  /** What the host has put on each shelf and she has not got to yet, oldest first. */
+  shelves: Record<string, ShelfItem[]>;
+  /** Items she has been through, per shelf, so the host never brings them twice. */
+  seen: Record<string, string[]>;
   people: Record<string, Acquaintance>;
   /** What she keeps about each person, by topic: the latest note wins. */
   notes: Record<string, Record<string, Note>>;
@@ -209,6 +230,7 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
               },
             }
           : {}),
+        ...(payload.material?.kind === "item" ? takeFromShelf(state, payload.material.shelf, payload.material.item) : {}),
       };
     }
     case "activity.ended": {
@@ -293,6 +315,22 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
           : state.pending,
       };
     }
+    case "stocked": {
+      const payload = event.payload;
+      const shelf = state.shelves[payload.shelf] ?? [];
+      const item: ShelfItem = {
+        stockedId: event.id,
+        item: payload.item,
+        title: payload.title,
+        text: payload.text,
+        tags: payload.tags,
+        source: payload.source,
+        at: event.at,
+        ...(payload.link ? { link: payload.link } : {}),
+      };
+      // A shelf holds what she could still get to; the oldest falls off when it is full.
+      return { ...next, shelves: { ...state.shelves, [payload.shelf]: [...shelf, item].slice(-SHELF_SIZE) } };
+    }
     case "noted": {
       const payload = event.payload;
       const notes = { ...(state.notes[payload.personId] ?? {}) };
@@ -306,6 +344,9 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
       };
       return { ...next, notes: { ...state.notes, [payload.personId]: notes } };
     }
+    case "urged":
+      // Wanting to talk is not talking: nothing changes until someone answers.
+      return next;
     case "recalled":
     case "episode":
     case "chapter":
@@ -321,6 +362,14 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
     case "limited":
       return event.payload.tag ? { ...next, tags: { ...state.tags, [event.payload.tag]: event.at } } : next;
   }
+}
+
+/** She picked one thing up: it leaves the shelf and joins what she has seen. */
+function takeFromShelf(state: LifeState, shelf: string, item: string): Pick<LifeState, "shelves" | "seen"> {
+  return {
+    shelves: { ...state.shelves, [shelf]: (state.shelves[shelf] ?? []).filter((entry) => entry.item !== item) },
+    seen: { ...state.seen, [shelf]: [...(state.seen[shelf] ?? []), item].slice(-SEEN_SIZE) },
+  };
 }
 
 function applySaid(state: LifeState, event: LifeEvent): LifeState {
@@ -359,6 +408,8 @@ function initial(event: LifeEvent<"born">): LifeState {
     tastes: {},
     beliefs: {},
     reading: {},
+    shelves: {},
+    seen: {},
     people: {},
     notes: {},
     pending: [],

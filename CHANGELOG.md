@@ -33,6 +33,12 @@ The life kernel. Isla stops describing a character in a prompt and starts giving
 - `@isla/life`: `Life.perceive()`: things outside her room enter as `perceived` events. Asleep
   she notices nothing; the host's rating reaches her only a little; the same thing again within
   a day is less new; with a `detail`, repeated perceptions become a taste.
+- `@isla/life`: shelves. `Life.stock()` puts an article, a commit or an episode on a shelf;
+  `shelfActivity()` turns a shelf into a pastime she picks from by the tags she has come to like.
+  What she read is in her log, memory and tastes; nothing is stocked twice.
+- `@isla/life`: `reachOut` / `urged`: she wants to talk to someone when she misses them, came
+  across something they would care about, or still owes them something; never while they are
+  talking, never asleep, not again before they answer. The host says it with `speak()`.
 - `@isla/life`: `heard.where`: where the host keeps the whole conversation; recollections of what
   was heard, answered or noted carry it.
 - `@isla/life`: `Life.note()` / `noted`: what she keeps about someone, by topic, resting on

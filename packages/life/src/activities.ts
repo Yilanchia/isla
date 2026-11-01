@@ -37,6 +37,8 @@ export interface Feeling {
  */
 export interface ActivityKind {
   id: string;
+  /** How she says it, for tastes about the activity as a whole, e.g. "看新闻". */
+  label?: string;
   /** The drive this mainly answers, used to explain the choice. */
   motive: Drive | "none";
   utility(context: ActivityContext): number | undefined;
@@ -189,8 +191,88 @@ const rest: ActivityKind = {
 
 export const ACTIVITIES: ActivityKind[] = [read, gaze, write, rest];
 
+/** One of her pastimes that draws on a shelf the host keeps stocked. */
+export interface ShelfActivityOptions {
+  /** Activity id and shelf name, e.g. `news`. */
+  id: string;
+  /** "看新闻", "翻主人的项目". */
+  label: string;
+  /** How she comes to an item, e.g. "读到" or "翻到". */
+  verb: string;
+  motive?: Drive;
+  minutes?: [number, number];
+  costPerHour?: number;
+  satisfies?: Partial<DriveLevels>;
+}
+
+/**
+ * A pastime over a shelf. She picks what she is most drawn to, by the tags she has come to like,
+ * and nothing when the shelf is empty. How it felt is hers: an inborn affinity per tag, which she
+ * only finds out by living, the same as with books.
+ */
+export function shelfActivity(options: ShelfActivityOptions): ActivityKind {
+  const { id, label, verb } = options;
+  const [shortest, longest] = options.minutes ?? [15, 35];
+  const appeal = (state: LifeState, tags: string[]) =>
+    tags.length === 0 ? 0 : tags.reduce((sum, tag) => sum + tasteMean(state, `${id}:${tag}`), 0) / tags.length;
+  return {
+    id,
+    label,
+    motive: options.motive ?? "curiosity",
+    utility({ state }) {
+      const shelf = state.shelves[id] ?? [];
+      if (shelf.length === 0 || state.energy < 0.2) return undefined;
+      // A full shelf pulls a little more; what she has come to like pulls more still.
+      return state.drives.curiosity + inclination(state, id) + tasteMean(state, id) * 0.5 + Math.min(shelf.length, 10) * 0.01;
+    },
+    plan({ state, random }) {
+      const shelf = state.shelves[id] ?? [];
+      const scored = shelf.map((entry, index) => ({
+        entry,
+        // Newer things first by a little, liked things first by more, and some chance.
+        score: appeal(state, entry.tags) + index * 0.002 + random() * 0.05,
+      }));
+      scored.sort((left, right) => right.score - left.score);
+      const entry = scored[0]!.entry;
+      return {
+        activity: id,
+        label,
+        durationMs: between(random, shortest, longest),
+        costPerHour: options.costPerHour ?? 0.05,
+        satisfies: options.satisfies ?? { curiosity: 0.3 },
+        material: {
+          kind: "item",
+          shelf: id,
+          item: entry.item,
+          title: entry.title,
+          text: entry.text,
+          tags: entry.tags,
+          stockedId: entry.stockedId,
+          ...(entry.link ? { link: entry.link } : {}),
+        },
+      };
+    },
+    feel({ state, random }, material) {
+      const tags = material?.kind === "item" ? material.tags : [];
+      const tag = tags[0];
+      const inborn = tags.length === 0 ? 0 : tags.reduce((sum, item) => sum + affinity(state, `${id}:${item}`), 0) / tags.length;
+      const valence = 0.03 + inborn * 0.07 + inclination(state, id) * 0.3 + (state.energy < 0.3 ? -0.04 : 0) + noise(random, 0.08);
+      const title = material?.kind === "item" ? `「${material.title}」` : "";
+      const reason =
+        valence > 0.07 ? `${verb}${title}，挺有意思` : valence < -0.01 ? `${verb}${title}，没什么意思` : `${verb}${title}`;
+      return { valence, arousal: 0.05, reason, about: tag ? `${id}:${tag}` : id };
+    },
+  };
+}
+
 /** Human label for a taste key, used when she puts a pattern into words. */
-export function tasteLabel(key: string, world: World, names: Record<string, string> = {}): string {
+export function tasteLabel(
+  key: string,
+  world: World,
+  names: Record<string, string> = {},
+  labels: Record<string, string> = {},
+): string {
+  if (labels[key]) return labels[key];
   if (key.startsWith("read:")) {
     const book = world.books.find((item) => `read:${item.id}` === key);
     return book ? `读《${book.title}》` : "读这本书";

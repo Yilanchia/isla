@@ -167,8 +167,6 @@ export class MemoryIndex {
       return;
     }
     const terms = tokenize(`${part.lead}${part.body}`);
-    const personId =
-      event.kind === "heard" || event.kind === "said" || event.kind === "noted" ? event.payload.personId : undefined;
     // A reply and a note were part of the conversation they answer or rest on.
     const where =
       event.kind === "heard"
@@ -178,6 +176,10 @@ export class MemoryIndex {
           : event.kind === "noted"
             ? this.traces.get(event.payload.source)?.where
             : undefined;
+    const personId =
+      event.kind === "heard" || event.kind === "said" || event.kind === "noted" || event.kind === "urged"
+        ? event.payload.personId
+        : undefined;
     // A summary is about the time it sums up, not the night it was written.
     const summary = event.kind === "episode" || event.kind === "chapter" ? event.payload : undefined;
     const trace: Trace = {
@@ -394,11 +396,19 @@ export class MemoryIndex {
       case "activity.started": {
         const material = event.payload.material;
         const body =
-          material?.kind === "passage" ? `，读到「${material.text}」` : material?.kind === "view" ? `，看到${material.text}` : "";
+          material?.kind === "passage"
+            ? `，读到「${material.text}」`
+            : material?.kind === "view"
+              ? `，看到${material.text}`
+              : material?.kind === "item"
+                ? `：「${material.title}」${material.text}`
+                : "";
         return { lead: event.payload.label, body };
       }
       case "felt":
         return { lead: "", body: event.payload.reason };
+      case "urged":
+        return { lead: `你想主动找${this.names.get(event.payload.personId) ?? "对方"}说话：`, body: event.payload.about };
       case "noted": {
         const name = this.names.get(event.payload.personId) ?? "对方";
         const state = event.payload.done ? "（已办完）" : event.payload.pending ? "（还没办）" : "";

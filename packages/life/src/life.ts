@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { localTime } from "@isla/core";
 import { ACTIVITIES, affinity, tasteLabel, type ActivityContext, type ActivityKind } from "./activities.js";
-import { HOUR, MINUTE, isWakingHour, localDayRange, nextLocalHour } from "./clock.js";
+import { DAY, HOUR, MINUTE, isWakingHour, localDayRange, nextLocalHour } from "./clock.js";
 import { chaptersOf, episodesOf, type ConsolidationContext } from "./consolidate.js";
 import {
   eventId,
@@ -9,6 +9,7 @@ import {
   SAFETY_MIND_NAME,
   type DriveLevels,
   type Grounding,
+  type Material,
   type LifeArchive,
   type LifeEvent,
   type LifeEventKind,
@@ -42,6 +43,12 @@ export interface LifeOptions {
   maxCatchUpMs?: number;
   /** Fixed reply when someone seems to be in danger. Hosts must check the numbers for their region. */
   crisisReply?: string;
+  /**
+   * Who she may reach out to on her own. Without it she never does. She wants to when she has
+   * missed them, when she came across something she thinks they would care about, or when
+   * something she owes them is still open; the host decides how it reaches them.
+   */
+  reachOut?: { personIds: string[] };
   logger?: { warn(message: string, error?: unknown): void };
 }
 
@@ -80,6 +87,29 @@ export interface SpeakInput {
   /** Ids of offered facts the text rests on. Ids that were not offered are kept as rejected. */
   grounds?: string[];
 }
+
+/** A message she sends only if they have been quiet at least this long. */
+const URGE_QUIET_MS = 2 * HOUR;
+/** How much she must have liked something to want to share it. */
+const SHARE_VALENCE = 0.08;
+/** How much she must want company to say so. */
+const MISS_CONNECTION = 0.7;
+
+export interface StockInput {
+  /** One word, the same as the activity that reads it, e.g. `news`. */
+  shelf: string;
+  /** The host's id for it, so it is never brought twice. */
+  item: string;
+  title: string;
+  /** What she will read: a summary, a commit message and diffstat. Kept short in her life. */
+  text: string;
+  tags?: string[];
+  source: string;
+  link?: string;
+}
+
+/** An item's text in her life is a summary, not the whole article. */
+const MAX_STOCKED_CHARS = 600;
 
 export interface PerceiveInput {
   /** Where it came from, e.g. `machine`, `calendar`, `rss`. One word; feelings about it are kept per source. */
@@ -168,6 +198,7 @@ export class Life {
   private readonly mindCallsPerDay: number;
   private readonly maxCatchUpMs: number;
   private readonly crisisReply: string;
+  private readonly reachOut: { personIds: string[] } | undefined;
   private readonly logger: { warn(message: string, error?: unknown): void };
   private readonly listeners = new Set<(event: LifeEvent) => void>();
   private readonly memory: MemoryIndex;
@@ -186,6 +217,7 @@ export class Life {
     this.mindCallsPerDay = Math.max(0, options.mindCallsPerDay ?? 48);
     this.maxCatchUpMs = options.maxCatchUpMs ?? 3 * 24 * HOUR;
     this.crisisReply = options.crisisReply ?? DEFAULT_CRISIS_REPLY;
+    this.reachOut = options.reachOut;
     this.logger = options.logger ?? { warn: (message, error) => console.warn(message, error) };
     this.log = log;
     this.current = state;
@@ -311,9 +343,12 @@ export class Life {
       if (FREE_MINDS.has(input.speaker)) {
         throw new Error(`"${input.speaker}" is reserved for the kernel's own voices`);
       }
-      const heard = this.log.find((event) => event.id === input.inReplyTo);
-      if (heard?.kind !== "heard" || heard.payload.personId !== input.personId) {
-        throw new Error(`${input.inReplyTo} is not something ${input.personId} said to her`);
+      const heard = findLast(this.log, (event) => event.id === input.inReplyTo);
+      // An answer to what they said, or the words of an urge of her own to talk to them.
+      const fits =
+        (heard?.kind === "heard" || heard?.kind === "urged") && heard.payload.personId === input.personId;
+      if (!heard || !fits) {
+        throw new Error(`${input.inReplyTo} is not something ${input.personId} said to her, or an urge to talk to them`);
       }
       const at = Math.max(this.clock(), this.cursor);
       await this.catchUp(at);
@@ -361,6 +396,43 @@ export class Life {
    */
   recall(cue: RecallCue): Recollection[] {
     return this.memory.recall(cue, Math.max(this.current.at, this.cursor));
+  }
+
+  /**
+   * The host puts something on one of her shelves. She gets to it in her own time, when she
+   * feels like that pastime and it is what she is most drawn to; nothing she has already been
+   * through, or that is already waiting, is stocked again. Asleep or awake makes no difference:
+   * a newspaper arrives at night too.
+   *
+   * @returns the `stocked` event, or undefined when she already has it.
+   */
+  stock(input: StockInput): Promise<LifeEvent<"stocked"> | undefined> {
+    return this.serial(async () => {
+      const shelf = input.shelf.trim();
+      const item = input.item.trim();
+      const title = input.title.trim();
+      if (!/^[\p{L}\p{N}_-]{1,32}$/u.test(shelf)) throw new Error("stock() needs a one-word shelf");
+      if (!item || item.length > 200) throw new Error("stock() needs the host's id for the item");
+      if (!title) throw new Error("stock() needs a title");
+      const at = Math.max(this.clock(), this.cursor);
+      await this.catchUp(at);
+      const state = this.current;
+      if ((state.seen[shelf] ?? []).includes(item) || (state.shelves[shelf] ?? []).some((entry) => entry.item === item)) {
+        return undefined;
+      }
+      return this.emit(at, {
+        kind: "stocked",
+        payload: {
+          shelf,
+          item,
+          title: clipText(title, 120),
+          text: clipText(input.text.trim(), MAX_STOCKED_CHARS),
+          tags: [...new Set((input.tags ?? []).map((tag) => tag.trim()).filter(Boolean))].slice(0, 6),
+          source: input.source.trim() || shelf,
+          ...(input.link ? { link: input.link } : {}),
+        },
+      });
+    });
   }
 
   /**
@@ -711,6 +783,74 @@ export class Life {
       await this.writeNote(at, ended.id);
     }
     await this.feelLonely(at);
+    if (this.reachOut) await this.feelUrge(at, ended.id, activity.material);
+  }
+
+  /**
+   * After something she did, does she want to tell someone? Only for a reason in her life: she
+   * misses them, she came across something they would care about, or she still owes them
+   * something. Never while they are talking to her, never twice in a row before they answer, and
+   * the same reason not again for a while; there is no quota beyond that.
+   */
+  private async feelUrge(at: number, endedId: string, material: Material | undefined): Promise<void> {
+    const state = advance(this.current, at);
+    if (state.asleep) return;
+    for (const personId of this.reachOut?.personIds ?? []) {
+      const person = state.people[personId];
+      if (!person) continue;
+      const lastHeard = person.lastHeardAt;
+      if (at - lastHeard < URGE_QUIET_MS) continue;
+      // The last urge has not been answered yet: wait for them, do not pile on.
+      const lastUrge = findLast(this.log, (event) => event.kind === "urged" && event.payload.personId === personId, 3000);
+      if (lastUrge && lastUrge.at > lastHeard) continue;
+      const urge = this.urgeFor(state, personId, material);
+      if (!urge) continue;
+      await this.emit(at, {
+        kind: "urged",
+        causes: [endedId, ...urge.causes],
+        payload: { personId, why: urge.why, about: urge.about },
+      });
+      return;
+    }
+  }
+
+  private urgeFor(
+    state: LifeState,
+    personId: string,
+    material: Material | undefined,
+  ): { why: "missed" | "share" | "pending"; about: string; causes: string[] } | undefined {
+    const name = state.people[personId]?.name ?? "对方";
+    // Something still to do for them comes first: a butler does not sit on a promise.
+    const open = Object.values(state.notes[personId] ?? {}).filter((note) => note.pending);
+    if (open.length > 0 && !this.urgedRecently(personId, "pending", state.at, DAY)) {
+      const oldest = open.sort((left, right) => left.at - right.at)[0]!;
+      return { why: "pending", about: oldest.text, causes: [oldest.eventId] };
+    }
+    // Something she just came across that she liked a lot, about a thing they care about.
+    if (material?.kind === "item" && !this.urgedRecently(personId, "share", state.at, 6 * HOUR)) {
+      const felt = findLast(this.log, (event) => event.kind === "felt", 4);
+      if (felt?.kind === "felt" && felt.payload.valence >= SHARE_VALENCE) {
+        const notes = Object.values(state.notes[personId] ?? {});
+        const cares = material.tags.some((tag) => notes.some((note) => note.text.includes(tag) || note.topic.includes(tag)));
+        if (cares || felt.payload.valence >= SHARE_VALENCE * 1.5) {
+          return { why: "share", about: `${material.title}（${material.tags.join("、") || material.shelf}）`, causes: [material.stockedId] };
+        }
+      }
+    }
+    // She has not heard from them in a long while, and she wants to.
+    if (state.drives.connection >= MISS_CONNECTION && !this.urgedRecently(personId, "missed", state.at, DAY)) {
+      return { why: "missed", about: `好久没和${name}说话了`, causes: [] };
+    }
+    return undefined;
+  }
+
+  private urgedRecently(personId: string, why: string, at: number, within: number): boolean {
+    for (let index = this.log.length - 1; index >= 0; index--) {
+      const event = this.log[index]!;
+      if (event.at < at - within) return false;
+      if (event.kind === "urged" && event.payload.personId === personId && event.payload.why === why) return true;
+    }
+    return false;
   }
 
   /** Nobody came for a whole day. She feels it once, not every hour. */
@@ -806,7 +946,10 @@ export class Life {
     const names = Object.fromEntries(
       Object.values(state.people).map((person) => [person.personId, person.name ?? "那个人"]),
     );
-    const label = tasteLabel(key, this.world, names);
+    const labels = Object.fromEntries(
+      [...this.kinds.values()].flatMap((kind) => (kind.label ? [[kind.id, kind.label]] : [])),
+    );
+    const label = tasteLabel(key, this.world, names, labels);
     const statement =
       stance === "like"
         ? `我好像挺喜欢${label}的`
@@ -1049,8 +1192,12 @@ function lastHeardAt(state: LifeState): number {
   return Math.max(-Infinity, ...Object.values(state.people).map((person) => person.lastHeardAt));
 }
 
-function findLast<T>(items: readonly T[], test: (item: T) => boolean): T | undefined {
-  for (let index = items.length - 1; index >= 0; index--) {
+function clipText(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max)}…`;
+}
+
+function findLast<T>(items: readonly T[], test: (item: T) => boolean, within = Infinity): T | undefined {
+  for (let index = items.length - 1; index >= Math.max(0, items.length - within); index--) {
     if (test(items[index]!)) return items[index];
   }
   return undefined;

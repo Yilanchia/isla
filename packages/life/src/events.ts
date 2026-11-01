@@ -23,8 +23,21 @@ export interface ViewMaterial {
   text: string;
 }
 
-/** What an activity was about: the passage she read, the view she looked at. */
-export type Material = PassageMaterial | ViewMaterial;
+/** Something the host put on one of her shelves: an article, a commit, an episode. */
+export interface ItemMaterial {
+  kind: "item";
+  shelf: string;
+  item: string;
+  title: string;
+  text: string;
+  tags: string[];
+  /** The `stocked` event it came in with. */
+  stockedId: string;
+  link?: string;
+}
+
+/** What an activity was about: the passage she read, the view she looked at, the item she picked up. */
+export type Material = PassageMaterial | ViewMaterial | ItemMaterial;
 
 /** Says what a piece of speech or writing rests on. */
 export interface Grounding {
@@ -133,6 +146,35 @@ export interface LifeEventPayloads {
      */
     external?: boolean;
   } & Grounding;
+  /**
+   * She wants to say something to someone who is not talking to her right now. The kernel decides
+   * that she wants to and why, from what has happened; the host decides how it reaches them, and
+   * records what was said with `speak()` against this event.
+   */
+  urged: {
+    personId: string;
+    /** `missed`: she has not heard from them in a long while. `share`: something she came across. `pending`: something still to do for them. */
+    why: "missed" | "share" | "pending";
+    /** What it is about, in her words. */
+    about: string;
+  };
+  /**
+   * The host put something on one of her shelves for her to get to in her own time: a news
+   * article, a commit in a project, an episode of a show. It enters the log with its text, so a
+   * replayed life reads exactly what she read.
+   */
+  stocked: {
+    shelf: string;
+    /** The host's id for it; the same id is never stocked twice on a shelf. */
+    item: string;
+    title: string;
+    text: string;
+    /** What it is about, for her tastes, e.g. `["AI", "芯片"]`. */
+    tags: string[];
+    /** Where it came from, e.g. the feed's name or the repository. */
+    source: string;
+    link?: string;
+  };
   /**
    * Something she was told and decided to keep: a fact about someone, a request, a promise. It
    * must come from something that person said; the kernel checks. A later note on the same topic

@@ -63,7 +63,9 @@ export function describeEvent(event: LifeEvent, now: number, timezone: string): 
           ? `，读到「${quote(material.text)}」`
           : material?.kind === "view"
             ? `，看到${material.text}`
-            : "";
+            : material?.kind === "item"
+              ? `：「${material.title}」${material.text ? `——${quote(material.text, 60)}` : ""}`
+              : "";
       return `${when} 开始${event.payload.label}${extra}`;
     }
     case "activity.ended":
@@ -80,6 +82,8 @@ export function describeEvent(event: LifeEvent, now: number, timezone: string): 
       return `${when} ${event.payload.name ?? "对方"}对你说：${quote(event.payload.text, 60)}`;
     case "said":
       return `${when} 你回答：${quote(event.payload.text, 60)}`;
+    case "urged":
+      return `${when} 你想主动找人说话：${event.payload.about}`;
     case "noted":
       return `${when} 你记下（${event.payload.topic}）：${quote(event.payload.text, 60)}${event.payload.done ? "，已经办完" : ""}`;
     case "lapsed":
