@@ -22,6 +22,8 @@ export interface Recollection {
   strength: number;
   /** How well the cue matched, 0 to 1. */
   match: number;
+  /** Where the host keeps the conversation it comes from, when it comes from one. */
+  where?: string;
 }
 
 export interface RecallCue {
@@ -112,6 +114,7 @@ interface Trace {
   length: number;
   /** For episodes and chapters: how long a span of time they sum up. */
   span?: number;
+  where?: string;
   /**
    * When the memory was formed and every time it was used since, oldest first, each with its own
    * decay: a use while the memory is still fresh fades faster (Pavlik & Anderson, 2005).
@@ -166,6 +169,15 @@ export class MemoryIndex {
     const terms = tokenize(`${part.lead}${part.body}`);
     const personId =
       event.kind === "heard" || event.kind === "said" || event.kind === "noted" ? event.payload.personId : undefined;
+    // A reply and a note were part of the conversation they answer or rest on.
+    const where =
+      event.kind === "heard"
+        ? event.payload.where
+        : event.kind === "said"
+          ? this.traces.get(event.payload.inReplyTo)?.where
+          : event.kind === "noted"
+            ? this.traces.get(event.payload.source)?.where
+            : undefined;
     // A summary is about the time it sums up, not the night it was written.
     const summary = event.kind === "episode" || event.kind === "chapter" ? event.payload : undefined;
     const trace: Trace = {
@@ -174,6 +186,7 @@ export class MemoryIndex {
       kind: event.kind,
       ...(personId ? { personId } : {}),
       ...(summary ? { span: summary.to - summary.from } : {}),
+      ...(where ? { where } : {}),
       lead: part.lead,
       body: part.body,
       length: terms.length,
@@ -267,6 +280,7 @@ export class MemoryIndex {
         text: this.render(trace, clarity, now, range !== undefined),
         strength: round(strength),
         match: round(value),
+        ...(trace.where ? { where: trace.where } : {}),
       };
     });
   }

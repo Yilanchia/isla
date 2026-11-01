@@ -49,6 +49,8 @@ export interface HearInput {
   personId: string;
   name?: string;
   text: string;
+  /** Where the host keeps the whole conversation, e.g. `dsh-session:<id>`. */
+  where?: string;
 }
 
 export interface HearResult {
@@ -855,6 +857,7 @@ export class Life {
         personId: input.personId,
         ...(input.name ? { name: input.name } : {}),
         text: input.text,
+        ...(input.where ? { where: input.where } : {}),
       },
     });
   }

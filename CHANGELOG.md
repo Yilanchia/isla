@@ -33,6 +33,8 @@ The life kernel. Isla stops describing a character in a prompt and starts giving
 - `@isla/life`: `Life.perceive()`: things outside her room enter as `perceived` events. Asleep
   she notices nothing; the host's rating reaches her only a little; the same thing again within
   a day is less new; with a `detail`, repeated perceptions become a taste.
+- `@isla/life`: `heard.where`: where the host keeps the whole conversation; recollections of what
+  was heard, answered or noted carry it.
 - `@isla/life`: `Life.note()` / `noted`: what she keeps about someone, by topic, resting on
   something they said; pending items and `done`. Notes about the person she is talking to stay
   among her facts, pending ones first. In the eval, reworded questions find 44–50% with notes

@@ -233,6 +233,20 @@ describe("in a life", () => {
     assert.equal(life.events().filter((event) => event.kind === "noted").length, 3, "the old notes stay in the log");
   });
 
+  it("remembers where a conversation is kept in full, for what was said and what was answered", async () => {
+    let now = Date.parse("2026-11-01T10:00:00+08:00");
+    const life = await Life.open({ genome: ISLA_GENOME, world: createRoom({ seed: "room" }), archive: new MemoryArchive(), clock: () => now, lifeId: "w" });
+    const { heard } = await life.listen({ personId: "owner", name: "主人", text: "帮我把 fairy-isla 的锁修一下", where: "dsh-session:s1" });
+    await life.speak({ personId: "owner", inReplyTo: heard.id, text: "锁修好了，加了测试。", speaker: "test" });
+    now += 3 * DAY;
+    await life.advanceTo(now);
+    const found = await life.remember({ text: "锁" });
+    assert.ok(found.length >= 2);
+    for (const item of found.filter((entry) => entry.kind === "heard" || entry.kind === "said")) {
+      assert.equal(item.where, "dsh-session:s1");
+    }
+  });
+
   it("opens a life born before memory was in the genome", () => {
     const old = structuredClone(ISLA_GENOME) as Partial<typeof ISLA_GENOME>;
     delete old.memory;

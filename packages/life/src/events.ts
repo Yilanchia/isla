@@ -112,7 +112,16 @@ export interface LifeEventPayloads {
     evidence: string[];
     confidence: number;
   };
-  heard: { personId: string; name?: string; text: string };
+  heard: {
+    personId: string;
+    name?: string;
+    text: string;
+    /**
+     * Where the conversation is kept in full, in the host's terms, e.g. `dsh-session:<id>`. Her
+     * life keeps what was said; the host keeps everything around it (files, commands, tool output).
+     */
+    where?: string;
+  };
   said: {
     personId: string;
     text: string;
