@@ -80,7 +80,8 @@ export interface LifeState {
   /** When the current waking or sleeping period began, and what began it. */
   since: number;
   sinceId: string;
-  sinceKind: "born" | "woke" | "slept" | "lapsed";
+  /** `called`: someone woke her up, as opposed to waking on her own. */
+  sinceKind: "born" | "woke" | "called" | "slept" | "lapsed";
   energy: number;
   drives: DriveLevels;
   mood: { valence: number; arousal: number };
@@ -151,8 +152,19 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
   switch (event.kind) {
     case "born":
       return next;
-    case "woke":
-      return { ...next, asleep: false, since: event.at, sinceId: event.id, sinceKind: "woke" };
+    case "woke": {
+      const by = event.payload.by;
+      if (!by) return { ...next, asleep: false, since: event.at, sinceId: event.id, sinceKind: "woke" };
+      // She was woken for this message, so it no longer waits for her to wake on her own.
+      return {
+        ...next,
+        asleep: false,
+        since: event.at,
+        sinceId: event.id,
+        sinceKind: "called",
+        pending: state.pending.filter((item) => item.id !== by),
+      };
+    }
     case "slept": {
       const { activity: _activity, ...rest } = next;
       return { ...rest, asleep: true, since: event.at, sinceId: event.id, sinceKind: "slept" };
@@ -223,7 +235,8 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
     case "reflected":
     case "said": {
       const settled = applySaid(next, event);
-      return FREE_MINDS.has(event.payload.mind)
+      const external = event.kind === "said" && event.payload.external === true;
+      return external || FREE_MINDS.has(event.payload.mind)
         ? settled
         : countMindCall(settled, event.at, timezone);
     }

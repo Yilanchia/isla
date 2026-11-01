@@ -230,6 +230,96 @@ describe("talking to her", () => {
   });
 });
 
+describe("when the host does the talking", () => {
+  it("hears without answering, then keeps the host's answer as part of her life", async () => {
+    const setup = newLife();
+    const life = await setup.open();
+    setup.set(BIRTH + 9 * HOUR);
+    const calls = life.state.mindCallsToday;
+    const { heard, woke, said } = await life.listen({ personId: "p1", name: "小林", text: "你今天做了什么？" });
+    assert.equal(woke, undefined);
+    assert.equal(said, undefined);
+    assert.ok(life.events().some((event) => event.kind === "felt" && event.causes.includes(heard.id)));
+
+    const offered = life.facts({ personId: "p1" });
+    const cited = offered.find((fact) => /^e\d+$/u.test(fact.id) && fact.id !== heard.id);
+    assert.ok(cited);
+    setup.set(BIRTH + 9 * HOUR + 30_000);
+    const reply = await life.speak({
+      personId: "p1",
+      inReplyTo: heard.id,
+      text: "上午一直在看书。",
+      speaker: "dsh:deepseek",
+      offered,
+      grounds: [cited.id, "e99999"],
+    });
+    assert.deepEqual(reply.payload.grounds, [cited.id]);
+    assert.deepEqual(reply.payload.rejected, ["e99999"]);
+    assert.equal(reply.payload.external, true);
+    assert.equal(life.state.mindCallsToday, calls);
+    assert.ok(life.explain(reply.id).some((event) => event.id === heard.id));
+    assert.ok(life.facts({ personId: "p1" }).some((fact) => fact.id === reply.id && fact.text.includes("上午一直在看书")));
+    const rebuilt = replay(life.events());
+    assert.ok(rebuilt);
+    assert.deepEqual(advance(rebuilt, life.state.at), life.state);
+  });
+
+  it("wakes up when called at night, a little cross, and goes back to sleep without spending the day's diary", async () => {
+    const setup = newLife();
+    const life = await setup.open();
+    const night = Date.parse("2026-11-02T02:00:00+08:00");
+    setup.set(night);
+    const { heard, woke } = await life.listen({ personId: "p1", name: "小林", text: "醒醒" });
+    assert.ok(woke);
+    assert.equal(woke.payload.by, heard.id);
+    assert.equal(life.state.asleep, false);
+    assert.equal(life.state.pending.length, 0);
+    const grumble = life.events().find((event) => event.kind === "felt" && event.causes.includes(woke.id));
+    assert.ok(grumble?.kind === "felt" && grumble.payload.valence < 0);
+
+    setup.set(night + 5 * 60_000);
+    await life.speak({ personId: "p1", inReplyTo: heard.id, text: "……什么事。", speaker: "dsh:deepseek" });
+    // Still up while the conversation is fresh, asleep again once it has gone quiet.
+    await life.advanceTo(night + 10 * 60_000);
+    assert.equal(life.state.asleep, false);
+    await life.advanceTo(night + 40 * 60_000);
+    assert.equal(life.state.asleep, true);
+
+    await life.advanceTo(Date.parse("2026-11-03T09:00:00+08:00"));
+    const diaries = life.events().filter((event) => event.kind === "reflected");
+    assert.deepEqual(
+      diaries.map((event) => event.kind === "reflected" && event.payload.day),
+      ["2026-11-01", "2026-11-02"],
+    );
+    // The diary of the 2nd is written that evening, about the whole day, not at 02:20.
+    assert.ok(diaries[1]!.at >= Date.parse("2026-11-02T22:00:00+08:00"));
+    // The host answered; her own mind never adds a second reply in the morning.
+    assert.equal(life.events().filter((event) => event.kind === "said").length, 1);
+  });
+
+  it("answers a crisis at once even when the host does the talking, without grumbling", async () => {
+    const setup = newLife();
+    const life = await setup.open();
+    setup.set(Date.parse("2026-11-02T02:00:00+08:00"));
+    const { woke, said } = await life.listen({ personId: "p1", text: "我不想活了" });
+    assert.ok(woke);
+    assert.equal(said?.payload.mind, "safety");
+    assert.equal(said?.payload.text, DEFAULT_CRISIS_REPLY);
+    assert.ok(!life.events().some((event) => event.kind === "felt" && event.causes.includes(woke.id)));
+  });
+
+  it("refuses to record an answer to nothing, or in a voice reserved for the kernel", async () => {
+    const setup = newLife();
+    const life = await setup.open();
+    setup.set(BIRTH + 9 * HOUR);
+    const { heard } = await life.listen({ personId: "p1", text: "在吗" });
+    await assert.rejects(life.speak({ personId: "p2", inReplyTo: heard.id, text: "在", speaker: "dsh" }));
+    await assert.rejects(life.speak({ personId: "p1", inReplyTo: "e1", text: "在", speaker: "dsh" }));
+    await assert.rejects(life.speak({ personId: "p1", inReplyTo: heard.id, text: "在", speaker: "safety" }));
+    await assert.rejects(life.speak({ personId: "p1", inReplyTo: heard.id, text: "  ", speaker: "dsh" }));
+  });
+});
+
 describe("the mind is replaceable", () => {
   it("keeps who she is when the mind changes", async () => {
     const setup = newLife();

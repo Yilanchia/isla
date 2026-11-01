@@ -56,7 +56,33 @@ export interface HearResult {
   asleep: boolean;
 }
 
-const CRISIS_PATTERN = /自杀|不想活|想死|活不下去|轻生|自残|割腕|结束自己|伤害自己|kill myself|suicide/iu;
+export interface ListenResult {
+  heard: LifeEvent<"heard">;
+  /** Present when the message woke her up. */
+  woke?: LifeEvent<"woke">;
+  /** Only the fixed crisis reply; every other answer is the host's, recorded with `speak()`. */
+  said?: LifeEvent<"said">;
+}
+
+export interface SpeakInput {
+  personId: string;
+  /** The `heard` event this answers. */
+  inReplyTo: string;
+  text: string;
+  /** Who put the words together, e.g. the host agent's model. Recorded as the `said` mind. */
+  speaker: string;
+  /** The facts the speaker was shown, usually from `facts()`. */
+  offered?: Fact[];
+  /** Ids of offered facts the text rests on. Ids that were not offered are kept as rejected. */
+  grounds?: string[];
+}
+
+/** After being woken, she stays up while someone keeps talking to her. */
+const CONVERSATION_MS = 20 * MINUTE;
+/** Woken in the night and back asleep within this long: it was an interruption, not a day. */
+const INTERRUPTION_MS = 3 * HOUR;
+
+const CRISIS_PATTERN =/自杀|不想活|想死|活不下去|轻生|自残|割腕|结束自己|伤害自己|kill myself|suicide/iu;
 
 export const DEFAULT_CRISIS_REPLY =
   "我在听，你说的话我很认真地对待。请现在就联系一个你信任的人，或者拨打 120 / 110；也可以打心理援助热线（中国大陆可拨 12356）。你不用一个人扛着。";
@@ -200,29 +226,10 @@ export class Life {
     return this.serial(async () => {
       const at = Math.max(this.clock(), this.cursor);
       await this.catchUp(at);
-      const heard = await this.emit(at, {
-        kind: "heard",
-        payload: {
-          personId: input.personId,
-          ...(input.name ? { name: input.name } : {}),
-          text: input.text,
-        },
-      });
+      const heard = await this.emitHeard(at, input);
       if (CRISIS_PATTERN.test(input.text)) {
         // A fixed reply, whatever mind she has and whether or not she is asleep.
-        const said = await this.emit(at, {
-          kind: "said",
-          causes: [heard.id],
-          payload: {
-            personId: input.personId,
-            text: this.crisisReply,
-            inReplyTo: heard.id,
-            mind: SAFETY_MIND_NAME,
-            grounds: [],
-            rejected: [],
-            facts: {},
-          },
-        });
+        const said = await this.crisis(at, heard);
         return { heard, said, asleep: this.current.asleep };
       }
       if (this.current.asleep) {
@@ -231,6 +238,60 @@ export class Life {
       await this.feelTalk(at, heard);
       const said = await this.reply(at, heard);
       return { heard, said, asleep: false };
+    });
+  }
+
+  /**
+   * Someone says something to her and the host answers, not her own mind: she hears it, wakes up
+   * if she was asleep, and feels it. Record the answer with `speak()`. Only a crisis is answered
+   * here, with the fixed reply.
+   */
+  listen(input: HearInput): Promise<ListenResult> {
+    return this.serial(async () => {
+      const at = Math.max(this.clock(), this.cursor);
+      await this.catchUp(at);
+      const heard = await this.emitHeard(at, input);
+      const crisis = CRISIS_PATTERN.test(input.text);
+      const woke = this.current.asleep ? await this.wakeFor(at, heard, !crisis) : undefined;
+      if (crisis) {
+        const said = await this.crisis(at, heard);
+        return { heard, said, ...(woke ? { woke } : {}) };
+      }
+      await this.feelTalk(at, heard);
+      return { heard, ...(woke ? { woke } : {}) };
+    });
+  }
+
+  /**
+   * Records words the host said to someone on her behalf. They become part of her life like her
+   * own replies: later facts include them, and the grounds are checked against what was offered.
+   */
+  speak(input: SpeakInput): Promise<LifeEvent<"said">> {
+    return this.serial(async () => {
+      const text = input.text.trim();
+      if (!text) throw new Error("speak() needs something to say");
+      if (FREE_MINDS.has(input.speaker)) {
+        throw new Error(`"${input.speaker}" is reserved for the kernel's own voices`);
+      }
+      const heard = this.log.find((event) => event.id === input.inReplyTo);
+      if (heard?.kind !== "heard" || heard.payload.personId !== input.personId) {
+        throw new Error(`${input.inReplyTo} is not something ${input.personId} said to her`);
+      }
+      const at = Math.max(this.clock(), this.cursor);
+      await this.catchUp(at);
+      const grounding = checkGrounds(input.offered ?? [], input.grounds ?? []);
+      return this.emit(at, {
+        kind: "said",
+        causes: [heard.id, ...grounding.grounds.filter(isEventId)],
+        payload: {
+          personId: input.personId,
+          text,
+          inReplyTo: heard.id,
+          mind: input.speaker,
+          external: true,
+          ...grounding,
+        },
+      });
     });
   }
 
@@ -366,8 +427,10 @@ export class Life {
       const now = advance(this.current, at);
       const hour = localTime(at, now.genome.timezone).hour;
       const { wakeHour, sleepHour } = now.genome.chronotype;
+      const talking = at - lastHeardAt(now) < CONVERSATION_MS;
       if (!isWakingHour(hour, wakeHour, sleepHour)) {
-        await this.goToSleep(at, "到了该睡的时候", true);
+        if (talking) return;
+        await this.goToSleep(at, now.sinceKind === "called" ? "没人说话了，又睡了回去" : "到了该睡的时候", true);
       } else if (now.energy < EXHAUSTED_ENERGY) {
         await this.goToSleep(at, "累得睡着了", false);
       } else {
@@ -523,7 +586,8 @@ export class Life {
     const timezone = state.genome.timezone;
     const day = dayKey(state.since, timezone);
     const reflected = this.log.some((event) => event.kind === "reflected" && event.payload.day === day);
-    if (nightly && !reflected) {
+    const interrupted = state.sinceKind === "called" && at - state.since < INTERRUPTION_MS;
+    if (nightly && !reflected && !interrupted) {
       const facts = gatherFacts(state, this.log, { now: at, focusDay: day, limit: 200 });
       const written = await this.compose(at, { task: "diary", day, facts });
       await this.emit(at, {
@@ -570,6 +634,57 @@ export class Life {
         statement,
         evidence: [...taste.evidence],
         confidence: round(Math.min(0.9, 0.3 + taste.count * 0.08)),
+      },
+    });
+  }
+
+  /** Someone called her out of sleep. The more tired she was, the less she liked it. */
+  private async wakeFor(at: number, heard: LifeEvent<"heard">, grumble: boolean): Promise<LifeEvent<"woke">> {
+    const state = advance(this.current, at);
+    const name = heard.payload.name ?? state.people[heard.payload.personId]?.name ?? "有人";
+    const woke = await this.emit(at, {
+      kind: "woke",
+      causes: [heard.id],
+      payload: { reason: `被${name}叫醒了`, by: heard.id },
+    });
+    if (grumble) {
+      const deep = state.energy < 0.5;
+      await this.emit(at, {
+        kind: "felt",
+        causes: [woke.id],
+        payload: {
+          valence: round(-0.04 - (1 - state.energy) * 0.1),
+          arousal: 0.1,
+          reason: deep ? "睡得正沉被叫醒，有点起床气" : "被叫醒了，还有点迷糊",
+        },
+      });
+    }
+    return woke;
+  }
+
+  private emitHeard(at: number, input: HearInput): Promise<LifeEvent<"heard">> {
+    return this.emit(at, {
+      kind: "heard",
+      payload: {
+        personId: input.personId,
+        ...(input.name ? { name: input.name } : {}),
+        text: input.text,
+      },
+    });
+  }
+
+  private crisis(at: number, heard: LifeEvent<"heard">): Promise<LifeEvent<"said">> {
+    return this.emit(at, {
+      kind: "said",
+      causes: [heard.id],
+      payload: {
+        personId: heard.payload.personId,
+        text: this.crisisReply,
+        inReplyTo: heard.id,
+        mind: SAFETY_MIND_NAME,
+        grounds: [],
+        rejected: [],
+        facts: {},
       },
     });
   }
@@ -658,11 +773,8 @@ export class Life {
       mind = this.inner;
       response = await mind.compose(full);
     }
-    const offered = new Map(request.facts.map((fact) => [fact.id, fact.text]));
-    const grounds = [...new Set(response.grounds)].filter((id) => offered.has(id));
-    const rejected = [...new Set(response.grounds)].filter((id) => !offered.has(id));
-    const facts = Object.fromEntries(grounds.map((id) => [id, offered.get(id) ?? ""]));
-    return { text: response.text.trim(), mind: mind.name, grounds, grounding: { grounds, rejected, facts } };
+    const grounding = checkGrounds(request.facts, response.grounds);
+    return { text: response.text.trim(), mind: mind.name, grounds: grounding.grounds, grounding };
   }
 
   private async limit(at: number, what: string, reason: string, tag?: string): Promise<void> {
@@ -726,6 +838,20 @@ export class Life {
     this.queue = run.catch(() => undefined);
     return run;
   }
+}
+
+/** Keeps the ids that were offered and records the ones that were not. */
+function checkGrounds(offered: Fact[], cited: string[]): Grounding {
+  const texts = new Map(offered.map((fact) => [fact.id, fact.text]));
+  const unique = [...new Set(cited)];
+  const grounds = unique.filter((id) => texts.has(id));
+  const rejected = unique.filter((id) => !texts.has(id));
+  const facts = Object.fromEntries(grounds.map((id) => [id, texts.get(id) ?? ""]));
+  return { grounds, rejected, facts };
+}
+
+function lastHeardAt(state: LifeState): number {
+  return Math.max(-Infinity, ...Object.values(state.people).map((person) => person.lastHeardAt));
 }
 
 function isEventId(id: string): boolean {

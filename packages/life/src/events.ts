@@ -44,7 +44,11 @@ export interface Grounding {
  */
 export interface LifeEventPayloads {
   born: { lifeId: string; genome: Genome; mind: string };
-  woke: { reason: string };
+  woke: {
+    reason: string;
+    /** The `heard` event that woke her, when someone called her out of sleep. */
+    by?: string;
+  };
   slept: { reason: string };
   perceived: {
     what: string;
@@ -102,6 +106,11 @@ export interface LifeEventPayloads {
     text: string;
     inReplyTo: string;
     mind: string;
+    /**
+     * Words put together by the host's own agent and recorded with `speak()`, not by one of her
+     * minds. They do not count against her mind budget.
+     */
+    external?: boolean;
   } & Grounding;
   "mind.changed": { from: string; to: string };
   /** She was not running: the host was off for longer than she can catch up on. */

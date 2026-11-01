@@ -14,6 +14,9 @@ The life kernel. Isla stops describing a character in a prompt and starts giving
 - `@isla/life`: `Genome` instead of a persona card; a small `World` (window, weather, books);
   `FileArchive` keeps a life in one JSON Lines file; long outages become a `lapsed` event.
 - `@isla/life`: fixed crisis reply on self-harm messages, awake or asleep, whatever the mind.
+- `@isla/life`: `listen()` / `speak()` for hosts whose own agent does the talking. Being called
+  wakes her (`woke.by`, a grumble when tired); external replies are grounded like a mind's and do
+  not use the mind budget; a night interruption does not use up the next day's diary.
 - `@isla/core`: `OpenAICompatibleProvider.complete({ system, user })`.
 - `examples/life`: a life on this machine's clock, with `--fast <hours>`, `/why` and `/state`.
 - `apps/qq-service` removed.

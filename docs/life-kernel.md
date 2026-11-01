@@ -82,6 +82,15 @@ born → woke → perceived → felt → activity.started → activity.ended →
 - **不假装活过**：宿主关机超过 `maxCatchUpMs`（默认 3 天），这段时间记为一个 `lapsed`，不补算。她醒来会知道自己有一段不记得的空白。
 - **睡着不回话**：睡着时收到的消息会排队，醒来再回。
 
+## 宿主替她说话
+
+宿主自己有 agent 负责回话（比如 Fairy 用 DSH）时，不用 `hear()`，用这两步：
+
+- `listen(input)`：她听见、感受到，但她自己的心智不回答。睡着的话会被叫醒，记一条带 `by` 的 `woke`；越累越有起床气。叫醒她的那条消息不会再排队等她自然醒来回复。危机消息照样立刻用固定回复。
+- `speak({ personId, inReplyTo, text, speaker, offered, grounds })`：把宿主说出的话记成 `said`，`external: true`，不占她的心智预算。`grounds` 和心智的一样按 `offered` 检查，没给过的编号进 `rejected`。`inReplyTo` 必须是这个人对她说的话；`inner`、`safety` 这两个名字留给内核。
+
+被叫醒后，最后一句话过去 20 分钟内她不会再睡。夜里被叫醒、3 小时内又睡回去，算一次打断：不写日记，那天的日记留到晚上再写。
+
 ## 存档就是她
 
 `FileArchive` 把一生写成一个 JSON Lines 文件，一行一个事件：人能读、能 diff、能备份、能带到另一台机器。进程写到一半死掉留下的半行会被丢弃；中间的坏行会报错，不会静默吞掉。

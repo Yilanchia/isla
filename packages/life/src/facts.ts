@@ -50,7 +50,7 @@ export function describeEvent(event: LifeEvent, now: number, timezone: string): 
   const when = whenLabel(event.at, now, timezone);
   switch (event.kind) {
     case "woke":
-      return `${when} 醒来`;
+      return event.payload.by ? `${when} ${event.payload.reason}` : `${when} 醒来`;
     case "slept":
       return `${when} 睡下`;
     case "perceived":
