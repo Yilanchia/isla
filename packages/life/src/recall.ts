@@ -88,6 +88,8 @@ const KIND_WEIGHT: Partial<Record<LifeEvent["kind"], number>> = {
   born: 1,
   chapter: 0.5,
   episode: 0.2,
+  // She chose to keep it.
+  noted: 0.8,
   heard: 0.3,
   said: 0.3,
   belief: 0.5,
@@ -162,7 +164,8 @@ export class MemoryIndex {
       return;
     }
     const terms = tokenize(`${part.lead}${part.body}`);
-    const personId = event.kind === "heard" || event.kind === "said" ? event.payload.personId : undefined;
+    const personId =
+      event.kind === "heard" || event.kind === "said" || event.kind === "noted" ? event.payload.personId : undefined;
     // A summary is about the time it sums up, not the night it was written.
     const summary = event.kind === "episode" || event.kind === "chapter" ? event.payload : undefined;
     const trace: Trace = {
@@ -382,6 +385,11 @@ export class MemoryIndex {
       }
       case "felt":
         return { lead: "", body: event.payload.reason };
+      case "noted": {
+        const name = this.names.get(event.payload.personId) ?? "对方";
+        const state = event.payload.done ? "（已办完）" : event.payload.pending ? "（还没办）" : "";
+        return { lead: `你记下关于${name}的事（${event.payload.topic}）${state}：`, body: event.payload.text };
+      }
       case "episode": {
         const time = localTime(event.payload.from, this.settings.timezone);
         return { lead: `${time.month}月${time.day}日${event.payload.part}：`, body: event.payload.summary };

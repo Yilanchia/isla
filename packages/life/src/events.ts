@@ -125,6 +125,23 @@ export interface LifeEventPayloads {
     external?: boolean;
   } & Grounding;
   /**
+   * Something she was told and decided to keep: a fact about someone, a request, a promise. It
+   * must come from something that person said; the kernel checks. A later note on the same topic
+   * replaces this one, and both stay in the log.
+   */
+  noted: {
+    personId: string;
+    /** A short key, e.g. `饮食禁忌` or `生日:母亲`. */
+    topic: string;
+    text: string;
+    /** The `heard` event it comes from. */
+    source: string;
+    /** Something still to be done: a promise, a request, a reminder. */
+    pending?: boolean;
+    /** Closes what was pending on this topic. */
+    done?: boolean;
+  };
+  /**
    * She searched her memory on purpose. Every id found counts as using that memory, which keeps
    * it clear for longer; memories that only came to mind on their own are not recorded.
    */

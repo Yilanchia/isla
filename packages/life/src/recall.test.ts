@@ -200,6 +200,39 @@ describe("in a life", () => {
     assert.ok(after.strength > before.strength, `${before.strength} → ${after.strength}`);
   });
 
+  it("keeps what she is told about someone, each topic once, with what is still to do first", async () => {
+    let now = Date.parse("2026-11-01T10:00:00+08:00");
+    const life = await Life.open({ genome: ISLA_GENOME, world: createRoom({ seed: "room" }), archive: new MemoryArchive(), clock: () => now, lifeId: "n" });
+    const owner = { personId: "owner", name: "主人" };
+    const { heard: allergy } = await life.listen({ ...owner, text: "我对花生过敏，以后买零食帮我看着点" });
+    await life.note({ personId: "owner", topic: "饮食禁忌", text: "主人对花生过敏，不能吃花生", source: allergy.id });
+    const { heard: ask } = await life.listen({ ...owner, text: "护照下个月过期，记得提醒我去续" });
+    await life.note({ personId: "owner", topic: "护照", text: "提醒主人去续护照（下个月过期）", source: ask.id, pending: true });
+
+    // Only from something that person said to her.
+    await assert.rejects(life.note({ personId: "someone", topic: "x", text: "y", source: allergy.id }));
+    await assert.rejects(life.note({ personId: "owner", topic: "x", text: "y", source: "e1" }));
+
+    const lines = life.facts({ personId: "owner" }).map((fact) => fact.text);
+    const pending = lines.findIndex((line) => line.startsWith("还没办完的事（主人）：提醒主人去续护照"));
+    const known = lines.findIndex((line) => line.startsWith("你记下的关于主人的事（饮食禁忌）：主人对花生过敏"));
+    assert.ok(pending !== -1 && known !== -1 && pending < known);
+
+    // Asked in other words, the note she wrote in plain words is what finds it.
+    now += 40 * DAY;
+    await life.advanceTo(now);
+    const found = await life.remember({ text: "我不能吃什么来着", personId: "owner" });
+    assert.equal(found[0]?.kind, "noted");
+    assert.equal(found[0]?.clarity === "clear" || found[0]?.clarity === "vague", true);
+
+    const { heard: renewed } = await life.listen({ ...owner, text: "护照续好了" });
+    await life.note({ personId: "owner", topic: "护照", text: "主人的护照已经续好", source: renewed.id, done: true });
+    const after = life.facts({ personId: "owner" }).map((fact) => fact.text);
+    assert.ok(!after.some((line) => line.startsWith("还没办完的事")));
+    assert.ok(after.some((line) => line.includes("（护照）：主人的护照已经续好")));
+    assert.equal(life.events().filter((event) => event.kind === "noted").length, 3, "the old notes stay in the log");
+  });
+
   it("opens a life born before memory was in the genome", () => {
     const old = structuredClone(ISLA_GENOME) as Partial<typeof ISLA_GENOME>;
     delete old.memory;

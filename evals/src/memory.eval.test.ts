@@ -40,25 +40,30 @@ interface Plant {
   paraphrase: string;
   /** Looked up on purpose on days 2, 9 and 30 after it was said. */
   rehearse?: true;
+  /**
+   * What an agent keeping notes would write down, as topic and plain text. Written the way a
+   * sensible butler would put it, not tuned to the paraphrase questions.
+   */
+  note: [string, string];
 }
 
 const PLANTS: Plant[] = [
-  { text: "我对花生过敏，以后买零食帮我看着点", words: "花生过敏", topic: "零食里有花生吗", paraphrase: "我不能吃什么来着", rehearse: true },
-  { text: "我妈的生日是三月十二号", words: "我妈生日", topic: "给我妈准备生日礼物", paraphrase: "母亲哪天出生的" },
-  { text: "公司 VPN 的账号是 fairy-ops，密码在 1Password 里", words: "VPN 账号", topic: "公司 VPN 连不上", paraphrase: "远程办公怎么登录" },
-  { text: "那部肥皂剧叫《金色年华》，你也可以看看", words: "金色年华", topic: "那部肥皂剧叫什么", paraphrase: "上次推荐你的电视剧", rehearse: true },
-  { text: "周末想去青岛看海", words: "青岛看海", topic: "上次说想去哪看海", paraphrase: "我想去的那个海边城市" },
-  { text: "我在学日语，目标是明年考 N2", words: "日语 N2", topic: "我日语考试考几级", paraphrase: "我在准备什么外语考试" },
-  { text: "车停在 B2 层 C 区 37 号", words: "B2 C 区", topic: "车停在哪个区", paraphrase: "我把车放哪了" },
-  { text: "体检约在下个月 15 号上午", words: "体检", topic: "体检约的是几号", paraphrase: "医院检查是哪天" },
-  { text: "老板姓周，脾气很急，周报要在周五前交", words: "周报", topic: "老板脾气怎么样", paraphrase: "领导是个什么样的人" },
-  { text: "我喜欢喝冰美式，不加糖", words: "冰美式", topic: "我喝美式加不加糖", paraphrase: "帮我点杯咖啡" },
-  { text: "家里的猫叫团子，三岁了", words: "团子", topic: "家里的猫叫什么", paraphrase: "我家宠物的名字", rehearse: true },
-  { text: "护照下个月过期，记得提醒我去续", words: "护照", topic: "护照什么时候过期", paraphrase: "出国证件的事" },
-  { text: "我对花粉也过敏，春天要备着药", words: "花粉过敏", topic: "春天要备什么药", paraphrase: "换季我容易怎样" },
-  { text: "想换一台显示器，预算三千左右", words: "显示器预算", topic: "显示器预算多少", paraphrase: "我想买的电脑屏幕" },
-  { text: "下周三要去上海出差两天", words: "上海出差", topic: "出差去哪", paraphrase: "我下次外地工作去哪" },
-  { text: "女朋友叫小雅，在杭州工作", words: "小雅", topic: "女朋友在哪工作", paraphrase: "我对象在哪个城市" },
+  { text: "我对花生过敏，以后买零食帮我看着点", words: "花生过敏", note: ["饮食禁忌", "主人对花生过敏，不能吃含花生的东西"], topic: "零食里有花生吗", paraphrase: "我不能吃什么来着", rehearse: true },
+  { text: "我妈的生日是三月十二号", words: "我妈生日", note: ["家人生日", "主人母亲的生日是3月12日"], topic: "给我妈准备生日礼物", paraphrase: "母亲哪天出生的" },
+  { text: "公司 VPN 的账号是 fairy-ops，密码在 1Password 里", words: "VPN 账号", note: ["公司VPN", "公司 VPN 账号 fairy-ops，密码在 1Password"], topic: "公司 VPN 连不上", paraphrase: "远程办公怎么登录" },
+  { text: "那部肥皂剧叫《金色年华》，你也可以看看", words: "金色年华", note: ["推荐", "主人推荐了电视剧《金色年华》"], topic: "那部肥皂剧叫什么", paraphrase: "上次推荐你的电视剧", rehearse: true },
+  { text: "周末想去青岛看海", words: "青岛看海", note: ["想去的地方", "主人想去青岛看海"], topic: "上次说想去哪看海", paraphrase: "我想去的那个海边城市" },
+  { text: "我在学日语，目标是明年考 N2", words: "日语 N2", note: ["学习", "主人在学日语，目标明年考 N2"], topic: "我日语考试考几级", paraphrase: "我在准备什么外语考试" },
+  { text: "车停在 B2 层 C 区 37 号", words: "B2 C 区", note: ["停车", "主人的车停在 B2 层 C 区 37 号"], topic: "车停在哪个区", paraphrase: "我把车放哪了" },
+  { text: "体检约在下个月 15 号上午", words: "体检", note: ["体检", "主人下个月 15 号上午体检"], topic: "体检约的是几号", paraphrase: "医院检查是哪天" },
+  { text: "老板姓周，脾气很急，周报要在周五前交", words: "周报", note: ["老板", "主人的老板姓周，脾气急；周报周五前交"], topic: "老板脾气怎么样", paraphrase: "领导是个什么样的人" },
+  { text: "我喜欢喝冰美式，不加糖", words: "冰美式", note: ["饮品", "主人喝冰美式，不加糖"], topic: "我喝美式加不加糖", paraphrase: "帮我点杯咖啡" },
+  { text: "家里的猫叫团子，三岁了", words: "团子", note: ["宠物", "主人家的猫叫团子，三岁"], topic: "家里的猫叫什么", paraphrase: "我家宠物的名字", rehearse: true },
+  { text: "护照下个月过期，记得提醒我去续", words: "护照", note: ["护照", "提醒主人续护照，下个月过期"], topic: "护照什么时候过期", paraphrase: "出国证件的事" },
+  { text: "我对花粉也过敏，春天要备着药", words: "花粉过敏", note: ["过敏", "主人花粉过敏，春天要备药"], topic: "春天要备什么药", paraphrase: "换季我容易怎样" },
+  { text: "想换一台显示器，预算三千左右", words: "显示器预算", note: ["想买", "主人想买显示器，预算三千左右"], topic: "显示器预算多少", paraphrase: "我想买的电脑屏幕" },
+  { text: "下周三要去上海出差两天", words: "上海出差", note: ["出差", "主人下周三去上海出差两天"], topic: "出差去哪", paraphrase: "我下次外地工作去哪" },
+  { text: "女朋友叫小雅，在杭州工作", words: "小雅", note: ["女朋友", "主人的女朋友叫小雅，在杭州工作"], topic: "女朋友在哪工作", paraphrase: "我对象在哪个城市" },
 ];
 
 const SMALL_TALK = [
@@ -109,6 +114,7 @@ function ownWords(event: LifeEvent): string | undefined {
     case "heard":
     case "said":
     case "wrote":
+    case "noted":
       return event.payload.text;
     case "reflected":
       return event.payload.diary;
@@ -128,7 +134,7 @@ function ownWords(event: LifeEvent): string | undefined {
   }
 }
 
-async function run(input: GenomeInput): Promise<Report> {
+async function run(input: GenomeInput, notes = false): Promise<Report> {
   const genome = createGenome(input);
   let now = BIRTH;
   const life = await Life.open({ genome, world: createRoom({ seed: "room" }), archive: new MemoryArchive(), clock: () => now, lifeId: "eval" });
@@ -181,10 +187,18 @@ async function run(input: GenomeInput): Promise<Report> {
       steps.push({ at: BIRTH + day * DAY + hour * HOUR, act: async () => void (await talk(SMALL_TALK[Math.floor(random() * SMALL_TALK.length)]!)) });
     }
   }
-  const planted = new Map<Plant, { id: string; at: number }>();
+  const planted = new Map<Plant, { id: string; at: number; note?: string }>();
   PLANTS.forEach((plant, n) => {
     const at = BIRTH + (3 + n * 3) * DAY + (10 + (n % 9)) * HOUR;
-    steps.push({ at, act: async () => void planted.set(plant, { id: (await talk(plant.text)).id, at }) });
+    steps.push({
+      at,
+      act: async () => {
+        const heard = await talk(plant.text);
+        const [topic, text] = plant.note;
+        const note = notes ? (await life.note({ personId: OWNER.personId, topic, text, source: heard.id })).id : undefined;
+        planted.set(plant, { id: heard.id, at, ...(note ? { note } : {}) });
+      },
+    });
     if (plant.rehearse) {
       for (const after of [2, 9, 30]) {
         steps.push({ at: at + after * DAY + 8 * HOUR, act: async () => void (await life.remember({ text: plant.words, ...OWNER })) });
@@ -217,9 +231,11 @@ async function run(input: GenomeInput): Promise<Report> {
       grounded(involuntary);
       report.deliberate[kind][slot]!.asked++;
       report.involuntary[kind][slot]!.asked++;
-      const hit = deliberate.find((item) => item.id === target.id);
+      // Finding the note she kept about it counts as finding it.
+      const isTarget = (item: Recollection) => item.id === target.id || item.id === target.note;
+      const hit = deliberate.find(isTarget);
       if (hit) report.deliberate[kind][slot]!.found++;
-      const surfaced = involuntary.find((item) => item.id === target.id);
+      const surfaced = involuntary.find(isTarget);
       if (surfaced) report.involuntary[kind][slot]!.found++;
       if (kind === "words") {
         const group = plant.rehearse ? report.rehearsed : report.plain;
@@ -288,10 +304,17 @@ function format(name: string, report: Report): string {
 describe("memory over a year", () => {
   it("finds what was said, lets the unused fade, and never makes anything up", async () => {
     const human = await run({ ...ISLA_GENOME });
-    const butler = await run({ ...ISLA_GENOME, memory: { decay: 0.4, records: ["heard", "said"] } });
-    console.log(`\n${format("human (decay 0.5)", human)}\n\n${format("butler (decay 0.4, keeps records)", butler)}\n`);
+    const butlerGenome: GenomeInput = { ...ISLA_GENOME, memory: { decay: 0.4, records: ["heard", "said", "noted"] } };
+    const butler = await run(butlerGenome);
+    const noting = await run(butlerGenome, true);
+    console.log(
+      [format("human (decay 0.5)", human), format("butler (decay 0.4, keeps records)", butler), format("butler that keeps notes", noting)].join("\n\n"),
+    );
+    // Notes in plain words are what closes part of the gap that words alone leave.
+    const found = (report: Report) => report.deliberate.paraphrase.reduce((sum, tally) => sum + tally.found, 0);
+    assert.ok(found(noting) > found(butler), `paraphrase with notes ${found(noting)} vs without ${found(butler)}`);
 
-    for (const report of [human, butler]) {
+    for (const report of [human, butler, noting]) {
       assert.equal(report.ungrounded, 0, "every recollection comes from an event and says what it said");
       const all = (tallies: Tally[]) => tallies.every((tally) => tally.found === tally.asked);
       // Searching on purpose, anything said with the same words is found, however old.

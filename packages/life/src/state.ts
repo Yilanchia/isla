@@ -56,6 +56,16 @@ export interface Belief {
   at: number;
 }
 
+/** The current note on one topic about one person. */
+export interface Note {
+  eventId: string;
+  topic: string;
+  text: string;
+  at: number;
+  source: string;
+  pending: boolean;
+}
+
 export interface Acquaintance {
   personId: string;
   name?: string;
@@ -94,6 +104,8 @@ export interface LifeState {
   /** Next passage index per book. */
   reading: Record<string, number>;
   people: Record<string, Acquaintance>;
+  /** What she keeps about each person, by topic: the latest note wins. */
+  notes: Record<string, Record<string, Note>>;
   /** Messages heard while asleep, waiting for her to wake up. */
   pending: Array<{ id: string; personId: string }>;
   weather?: string;
@@ -281,6 +293,19 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
           : state.pending,
       };
     }
+    case "noted": {
+      const payload = event.payload;
+      const notes = { ...(state.notes[payload.personId] ?? {}) };
+      notes[payload.topic] = {
+        eventId: event.id,
+        topic: payload.topic,
+        text: payload.text,
+        at: event.at,
+        source: payload.source,
+        pending: payload.done ? false : payload.pending === true,
+      };
+      return { ...next, notes: { ...state.notes, [payload.personId]: notes } };
+    }
     case "recalled":
     case "episode":
     case "chapter":
@@ -335,6 +360,7 @@ function initial(event: LifeEvent<"born">): LifeState {
     beliefs: {},
     reading: {},
     people: {},
+    notes: {},
     pending: [],
     tags: {},
     mindDay: dayKey(event.at, genome.timezone),

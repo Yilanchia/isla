@@ -79,6 +79,16 @@ export interface SpeakInput {
   grounds?: string[];
 }
 
+export interface NoteInput {
+  personId: string;
+  topic: string;
+  text: string;
+  /** The `heard` event it comes from. */
+  source: string;
+  pending?: boolean;
+  done?: boolean;
+}
+
 /** After being woken, she stays up while someone keeps talking to her. */
 const CONVERSATION_MS = 20 * MINUTE;
 /** Woken in the night and back asleep within this long: it was an interruption, not a day. */
@@ -328,6 +338,37 @@ export class Life {
    */
   recall(cue: RecallCue): Recollection[] {
     return this.memory.recall(cue, Math.max(this.current.at, this.cursor));
+  }
+
+  /**
+   * She keeps something she was told. It must rest on something that person said to her; a note
+   * on a topic she already has replaces the old one, which stays in the log.
+   */
+  note(input: NoteInput): Promise<LifeEvent<"noted">> {
+    return this.serial(async () => {
+      const topic = input.topic.trim();
+      const text = input.text.trim();
+      if (!topic || topic.length > 40) throw new Error("a note needs a short topic");
+      if (!text || text.length > 300) throw new Error("a note needs a short text");
+      const source = findLast(this.log, (event) => event.id === input.source);
+      if (source?.kind !== "heard" || source.payload.personId !== input.personId) {
+        throw new Error(`${input.source} is not something ${input.personId} said to her`);
+      }
+      const at = Math.max(this.clock(), this.cursor);
+      await this.catchUp(at);
+      return this.emit(at, {
+        kind: "noted",
+        causes: [source.id],
+        payload: {
+          personId: input.personId,
+          topic,
+          text,
+          source: source.id,
+          ...(input.pending ? { pending: true } : {}),
+          ...(input.done ? { done: true } : {}),
+        },
+      });
+    });
   }
 
   /**
@@ -930,6 +971,13 @@ function checkGrounds(offered: Fact[], cited: string[]): Grounding {
 
 function lastHeardAt(state: LifeState): number {
   return Math.max(-Infinity, ...Object.values(state.people).map((person) => person.lastHeardAt));
+}
+
+function findLast<T>(items: readonly T[], test: (item: T) => boolean): T | undefined {
+  for (let index = items.length - 1; index >= 0; index--) {
+    if (test(items[index]!)) return items[index];
+  }
+  return undefined;
 }
 
 function isEventId(id: string): boolean {

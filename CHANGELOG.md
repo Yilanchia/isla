@@ -30,6 +30,10 @@ The life kernel. Isla stops describing a character in a prompt and starts giving
   cover and mention; going over them in sleep strengthens what they mention. A question about a
   week or month is answered with its chapter; the last week and month stay among the facts.
 - `@isla/life`: weather tastes read as "晴天", not "weather:晴".
+- `@isla/life`: `Life.note()` / `noted`: what she keeps about someone, by topic, resting on
+  something they said; pending items and `done`. Notes about the person she is talking to stay
+  among her facts, pending ones first. In the eval, reworded questions find 44–50% with notes
+  against 19% without.
 - `@isla/core`: `OpenAICompatibleProvider.complete({ system, user })`.
 - `examples/life`: a life on this machine's clock, with `--fast <hours>`, `/why` and `/state`.
 - `apps/qq-service` removed.

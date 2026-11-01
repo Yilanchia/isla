@@ -18,7 +18,7 @@ export interface ConsolidationContext {
   names: (personId: string) => string;
 }
 
-const MEMORABLE = new Set<LifeEvent["kind"]>(["heard", "said", "activity.started", "wrote", "belief", "felt", "perceived"]);
+const MEMORABLE = new Set<LifeEvent["kind"]>(["heard", "said", "noted", "activity.started", "wrote", "belief", "felt", "perceived"]);
 
 /** 上午 06–12, 下午 12–18, 晚上 18–24, 夜里 00–06. */
 export function partOfDay(at: number, timezone: string): string {
@@ -72,6 +72,12 @@ function summarize(events: LifeEvent[], lines: number, context: ConsolidationCon
   if (felt) {
     parts.push(felt.payload.reason);
     kept.push(felt.id);
+  }
+
+  const noted = events.filter((event): event is LifeEvent<"noted"> => event.kind === "noted").slice(-lines);
+  if (noted.length > 0) {
+    parts.push(`记下了${noted.map((event) => `「${clip(event.payload.text, 20)}」`).join("")}`);
+    kept.push(...noted.map((event) => event.id));
   }
 
   const notes = events.filter((event) => event.kind === "wrote").length;

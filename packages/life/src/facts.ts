@@ -80,6 +80,8 @@ export function describeEvent(event: LifeEvent, now: number, timezone: string): 
       return `${when} ${event.payload.name ?? "对方"}对你说：${quote(event.payload.text, 60)}`;
     case "said":
       return `${when} 你回答：${quote(event.payload.text, 60)}`;
+    case "noted":
+      return `${when} 你记下（${event.payload.topic}）：${quote(event.payload.text, 60)}${event.payload.done ? "，已经办完" : ""}`;
     case "lapsed":
       return `${whenLabel(event.payload.from, now, timezone)} 到 ${whenLabel(event.payload.to, now, timezone)} 之间你没有醒着，什么也不记得`;
     default:
@@ -109,6 +111,8 @@ export interface GatherOptions {
   cue?: string;
   /** How many memories a cue may bring back. Default 4. */
   recallLimit?: number;
+  /** How many notes about the person are always in front of her. Default 12. */
+  notesLimit?: number;
 }
 
 /**
@@ -141,6 +145,19 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
     }
   }
   // The log is in time order, so every lookup below walks back from the end and stops early.
+  // What she keeps about the person in front of her: what is still to be done first, then facts.
+  if (options.personId && !options.focusDay) {
+    const name = state.people[options.personId]?.name ?? "对方";
+    const notes = Object.values(state.notes[options.personId] ?? {}).sort((left, right) =>
+      left.pending === right.pending ? right.at - left.at : left.pending ? -1 : 1,
+    );
+    for (const note of notes.slice(0, options.notesLimit ?? 12)) {
+      facts.push({
+        id: note.eventId,
+        text: note.pending ? `还没办完的事（${name}）：${note.text}` : `你记下的关于${name}的事（${note.topic}）：${note.text}`,
+      });
+    }
+  }
   const diary = findLast(events, (event) => event.kind === "reflected");
   const used = new Set(facts.map((fact) => fact.id));
   const pushEvent = (event: LifeEvent): void => {
