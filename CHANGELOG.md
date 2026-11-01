@@ -25,6 +25,11 @@ The life kernel. Isla stops describing a character in a prompt and starts giving
 - `@isla/life`: `gatherFacts` walks the log back from the end instead of scanning all of it;
   `@isla/core`: `localTime()` reuses one formatter per zone. A simulated month: 7.8 s → 0.15 s.
 - `evals`: a year-long memory eval with regression gates.
+- `@isla/life`: sleep consolidation. Each night the day becomes `episode`s (上午 / 下午 / 晚上 /
+  夜里), each week and month a `chapter`, written by the kernel from the events with the ids they
+  cover and mention; going over them in sleep strengthens what they mention. A question about a
+  week or month is answered with its chapter; the last week and month stay among the facts.
+- `@isla/life`: weather tastes read as "晴天", not "weather:晴".
 - `@isla/core`: `OpenAICompatibleProvider.complete({ system, user })`.
 - `examples/life`: a life on this machine's clock, with `--fast <hours>`, `/why` and `/state`.
 - `apps/qq-service` removed.

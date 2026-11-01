@@ -196,6 +196,7 @@ export function tasteLabel(key: string, world: World, names: Record<string, stri
     return book ? `读《${book.title}》` : "读这本书";
   }
   if (key.startsWith("gaze:")) return `${key.slice("gaze:".length)}天看窗外`;
+  if (key.startsWith("weather:")) return `${key.slice("weather:".length)}天`;
   if (key.startsWith("talk:")) {
     const id = key.slice("talk:".length);
     return `和${names[id] ?? id}说话`;

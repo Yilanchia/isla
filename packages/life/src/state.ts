@@ -282,6 +282,8 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
       };
     }
     case "recalled":
+    case "episode":
+    case "chapter":
       // What she remembers is not part of her state: the memory index reads it from the log.
       return next;
     case "mind.changed":

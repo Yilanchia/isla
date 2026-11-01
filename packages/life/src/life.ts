@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { localTime } from "@isla/core";
 import { ACTIVITIES, affinity, tasteLabel, type ActivityContext, type ActivityKind } from "./activities.js";
-import { HOUR, MINUTE, isWakingHour, nextLocalHour } from "./clock.js";
+import { HOUR, MINUTE, isWakingHour, localDayRange, nextLocalHour } from "./clock.js";
+import { chaptersOf, episodesOf, type ConsolidationContext } from "./consolidate.js";
 import {
   eventId,
   FREE_MINDS,
@@ -629,7 +630,45 @@ export class Life {
         payload: { diary: written.text, mind: written.mind, day, ...written.grounding },
       });
     }
+    if (nightly && !interrupted) await this.consolidate(at, day);
     await this.emit(at, { kind: "slept", causes: [state.sinceId], payload: { reason } });
+  }
+
+  /**
+   * Before sleep: the day since the last episode becomes episodes, and a week or a month that
+   * ends today becomes a chapter. Each is written once, so a retried night does not repeat it.
+   */
+  private async consolidate(at: number, day: string): Promise<void> {
+    const timezone = this.current.genome.timezone;
+    const context: ConsolidationContext = {
+      timezone,
+      strength: (id) => this.memory.strength(id, at) ?? -Infinity,
+      names: (personId) => this.current.people[personId]?.name ?? "对方",
+    };
+    let lastEnd = -Infinity;
+    let done = false;
+    for (let index = this.log.length - 1; index >= 0; index--) {
+      const event = this.log[index]!;
+      if (event.kind !== "episode") continue;
+      lastEnd = event.payload.to;
+      done = event.payload.day === day;
+      break;
+    }
+    if (!done) {
+      const from = Math.max(lastEnd, localDayRange(day, timezone).from);
+      const episodes = episodesOf(this.log, day, from, at, context);
+      if (episodes.length > 0) await this.commit(at, episodes);
+    }
+    const written = new Set(
+      this.log
+        .slice(-400)
+        .filter((event): event is LifeEvent<"chapter"> => event.kind === "chapter")
+        .map((event) => `${event.payload.span}:${event.payload.label}`),
+    );
+    const chapters = chaptersOf(this.log, day, context).filter(
+      (draft) => !written.has(`${draft.payload.span}:${draft.payload.label}`),
+    );
+    if (chapters.length > 0) await this.commit(at, chapters);
   }
 
   /** Turns a run of feelings about one thing into a belief about herself, when it is clear. */

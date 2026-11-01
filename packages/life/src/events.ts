@@ -36,6 +36,18 @@ export interface Grounding {
   facts: Record<string, string>;
 }
 
+/** What a consolidated memory stands for. */
+export interface Consolidation {
+  /** The span of time it sums up. */
+  from: number;
+  to: number;
+  summary: string;
+  /** Every memory it stands for; asked about that time, these are what it zooms into. */
+  covers: string[];
+  /** The ones its summary actually mentions. Going over them in sleep counts as using them. */
+  kept: string[];
+}
+
 /**
  * Every kind of thing that can happen in a life, and what it carries.
  *
@@ -122,6 +134,22 @@ export interface LifeEventPayloads {
     found: string[];
     /** Who asked, when she was looking something up for someone. */
     personId?: string;
+  };
+  /**
+   * Asleep, she sorts one stretch of a day into a single memory. Written by the kernel from the
+   * events themselves, so it says nothing they do not.
+   */
+  episode: Consolidation & {
+    /** Local date the stretch belongs to, `YYYY-MM-DD`. */
+    day: string;
+    /** 上午, 下午, 晚上 or 夜里. */
+    part: string;
+  };
+  /** A week or a month, looked back on: what the episodes in it add up to. */
+  chapter: Consolidation & {
+    span: "week" | "month";
+    /** "11月2日到11月8日", "2026年11月". */
+    label: string;
   };
   "mind.changed": { from: string; to: string };
   /** She was not running: the host was off for longer than she can catch up on. */

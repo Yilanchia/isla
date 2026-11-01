@@ -1,5 +1,6 @@
 export * from "./activities.js";
 export * from "./clock.js";
+export * from "./consolidate.js";
 export * from "./events.js";
 export * from "./facts.js";
 export * from "./file-archive.js";

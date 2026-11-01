@@ -68,6 +68,8 @@ const MATCH_WEIGHT = 3;
 const PERSON_BONUS = 0.4;
 const TIME_BONUS = 1;
 const TALK_BONUS = 0.5;
+const FIT_BONUS = 2;
+const SUMMARY_PENALTY = 0.5;
 const TALK_WORDS = /聊|说|谈|讲|告诉|提过|问过|答应|交代|约好/u;
 const SPREAD = 0.3;
 /** A memory linked to more than this many others (a diary) does not pass activation on. */
@@ -84,6 +86,8 @@ const BM25_B = 0.75;
 /** Some kinds of things stay with her more than others, whatever she felt about them. */
 const KIND_WEIGHT: Partial<Record<LifeEvent["kind"], number>> = {
   born: 1,
+  chapter: 0.5,
+  episode: 0.2,
   heard: 0.3,
   said: 0.3,
   belief: 0.5,
@@ -104,6 +108,8 @@ interface Trace {
   lead: string;
   body: string;
   length: number;
+  /** For episodes and chapters: how long a span of time they sum up. */
+  span?: number;
   /**
    * When the memory was formed and every time it was used since, oldest first, each with its own
    * decay: a use while the memory is still fresh fades faster (Pavlik & Anderson, 2005).
@@ -157,11 +163,14 @@ export class MemoryIndex {
     }
     const terms = tokenize(`${part.lead}${part.body}`);
     const personId = event.kind === "heard" || event.kind === "said" ? event.payload.personId : undefined;
+    // A summary is about the time it sums up, not the night it was written.
+    const summary = event.kind === "episode" || event.kind === "chapter" ? event.payload : undefined;
     const trace: Trace = {
       id: event.id,
-      at: event.at,
+      at: summary ? summary.from : event.at,
       kind: event.kind,
       ...(personId ? { personId } : {}),
+      ...(summary ? { span: summary.to - summary.from } : {}),
       lead: part.lead,
       body: part.body,
       length: terms.length,
@@ -170,7 +179,9 @@ export class MemoryIndex {
       links: [],
     };
     this.traces.set(event.id, trace);
-    this.order.push(event.id);
+    const last = this.traces.get(this.order.at(-1) ?? "");
+    if (last && last.at > trace.at) this.order.splice(this.firstAtOrAfter(trace.at), 0, trace.id);
+    else this.order.push(trace.id);
     this.totalLength += terms.length;
     const counts = new Map<string, number>();
     for (const term of terms) counts.set(term, (counts.get(term) ?? 0) + 1);
@@ -179,6 +190,8 @@ export class MemoryIndex {
       if (!posting) this.postings.set(term, (posting = new Map()));
       posting.set(event.id, count);
     }
+    // A summary is tied to dozens of memories; it is reached by its words and its time instead.
+    if (summary) return;
     for (const cause of event.causes) {
       const other = this.traces.get(this.resolve(cause));
       if (!other || other.id === trace.id) continue;
@@ -228,7 +241,8 @@ export class MemoryIndex {
       const strength = this.activation(trace, now);
       const person = cue.personId && trace.personId === cue.personId ? PERSON_BONUS : 0;
       const time = inRange ? TIME_BONUS : 0;
-      const kind = talk && (trace.kind === "heard" || trace.kind === "said") ? TALK_BONUS : 0;
+      const kind =
+        (talk && (trace.kind === "heard" || trace.kind === "said") ? TALK_BONUS : 0) + this.fit(trace, range, inRange);
       // Whether a memory surfaces depends on how alive it is plus the cue; which comes first
       // depends mostly on how well it fits what was asked.
       const activation = strength + value * MATCH_WEIGHT + person + time + kind;
@@ -252,6 +266,18 @@ export class MemoryIndex {
         match: round(value),
       };
     });
+  }
+
+  /**
+   * Asked about a week, the week's chapter is the best answer; asked about a day, that day's
+   * episodes. Asked by words, what was actually said comes before a summary that quotes it.
+   */
+  private fit(trace: Trace, range: { from: number; to: number } | undefined, inRange: boolean): number {
+    if (trace.span === undefined) return 0;
+    if (!range) return -SUMMARY_PENALTY;
+    if (!inRange || !Number.isFinite(range.from)) return 0;
+    const ratio = trace.span / Math.max(range.to - range.from, HOUR);
+    return FIT_BONUS * Math.max(0, 1 - Math.abs(Math.log(ratio)) / Math.log(8));
   }
 
   private activation(trace: Trace, now: number): number {
@@ -305,17 +331,21 @@ export class MemoryIndex {
     }
   }
 
-  private between(from: number, to: number): string[] {
-    const found: string[] = [];
+  private firstAtOrAfter(at: number): number {
     let low = 0;
     let high = this.order.length;
     while (low < high) {
       const middle = (low + high) >> 1;
       const trace = this.traces.get(this.order[middle]!);
-      if (trace && trace.at < from) low = middle + 1;
+      if (trace && trace.at < at) low = middle + 1;
       else high = middle;
     }
-    for (let index = low; index < this.order.length; index++) {
+    return low;
+  }
+
+  private between(from: number, to: number): string[] {
+    const found: string[] = [];
+    for (let index = this.firstAtOrAfter(from); index < this.order.length; index++) {
       const trace = this.traces.get(this.order[index]!);
       if (!trace || trace.at >= to) break;
       found.push(trace.id);
@@ -352,6 +382,12 @@ export class MemoryIndex {
       }
       case "felt":
         return { lead: "", body: event.payload.reason };
+      case "episode": {
+        const time = localTime(event.payload.from, this.settings.timezone);
+        return { lead: `${time.month}月${time.day}日${event.payload.part}：`, body: event.payload.summary };
+      }
+      case "chapter":
+        return { lead: `${event.payload.label}：`, body: event.payload.summary };
       default:
         return undefined;
     }
@@ -359,6 +395,11 @@ export class MemoryIndex {
 
   private render(trace: Trace, clarity: Clarity, now: number, dated: boolean): string {
     const timezone = this.settings.timezone;
+    // A summary already says when it was; how clearly she has it decides how much of it is left.
+    if (trace.span !== undefined) {
+      if (clarity === "clear") return `${trace.lead}${trace.body}`;
+      return clarity === "vague" ? `${trace.lead}${clip(trace.body, 40)}` : `记不太清了，${trace.lead}${clip(trace.body, 15)}`;
+    }
     if (clarity === "clear") return `${whenLabel(trace.at, now, timezone)} ${trace.lead}${trace.body}`;
     const rough = dated ? whenLabel(trace.at, now, timezone).split(" ")[0]! : roughly(trace.at, now, timezone);
     if (clarity === "vague") return `${rough}，${trace.lead}${clip(trace.body, 30)}`;
@@ -390,6 +431,9 @@ function usedBy(event: LifeEvent): string[] {
       return event.payload.evidence;
     case "recalled":
       return event.payload.found;
+    case "episode":
+    case "chapter":
+      return event.payload.kept;
     default:
       return [];
   }

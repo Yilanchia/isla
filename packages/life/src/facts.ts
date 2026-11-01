@@ -87,8 +87,8 @@ export function describeEvent(event: LifeEvent, now: number, timezone: string): 
   }
 }
 
-function findLast<T>(items: readonly T[], test: (item: T) => boolean): T | undefined {
-  for (let index = items.length - 1; index >= 0; index--) {
+function findLast<T>(items: readonly T[], test: (item: T) => boolean, within = Infinity): T | undefined {
+  for (let index = items.length - 1; index >= Math.max(0, items.length - within); index--) {
     if (test(items[index]!)) return items[index];
   }
   return undefined;
@@ -151,6 +151,20 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
     facts.push({ id: event.id, text });
   };
   if (diary) pushEvent(diary);
+  // Further back than her diary, she has the last week and the last month as one line each.
+  if (!options.focusDay) {
+    for (const span of ["week", "month"] as const) {
+      // A chapter older than about two months of events is not "the last" one any more.
+      const chapter = findLast(events, (event) => event.kind === "chapter" && event.payload.span === span, 6000);
+      if (chapter?.kind !== "chapter" || used.has(chapter.id)) continue;
+      used.add(chapter.id);
+      const summary = chapter.payload.summary;
+      facts.push({
+        id: chapter.id,
+        text: `${span === "week" ? "最近一周" : "最近一个月"}（${chapter.payload.label}）：${summary.length > 120 ? `${summary.slice(0, 120)}…` : summary}`,
+      });
+    }
+  }
   if (options.personId) {
     const exchange: LifeEvent[] = [];
     for (let index = events.length - 1; index >= 0 && exchange.length < 8; index--) {

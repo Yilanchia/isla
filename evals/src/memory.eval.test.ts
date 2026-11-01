@@ -120,6 +120,9 @@ function ownWords(event: LifeEvent): string | undefined {
       return event.payload.label;
     case "felt":
       return event.payload.reason;
+    case "episode":
+    case "chapter":
+      return event.payload.summary;
     default:
       return undefined;
   }
@@ -229,6 +232,8 @@ async function run(input: GenomeInput): Promise<Report> {
     (plant.rehearse ? report.rehearsedClarity : report.plainClarity)[slot]!.push(RANK[best]);
     const facts = life.facts({ personId: OWNER.personId, cue: plant.topic });
     report.factChars.push(facts.reduce((sum, fact) => sum + fact.text.length, 0));
+    // Asked about the week it was said in, the week's chapter comes back first.
+    grounded(index.recall({ text: "上周过得怎么样", limit: 3 }, now, true));
     report.memoryChars.push(facts.filter((fact) => fact.text.startsWith("你想起：")).reduce((sum, fact) => sum + fact.text.length, 0));
   };
 
