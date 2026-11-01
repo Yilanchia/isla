@@ -320,6 +320,58 @@ describe("when the host does the talking", () => {
   });
 });
 
+describe("noticing what the host tells her", () => {
+  it("records a perception as an event, so the life replays the same", async () => {
+    const setup = newLife();
+    const life = await setup.open();
+    setup.set(BIRTH + 4 * HOUR);
+    const perceived = await life.perceive({ source: "machine", what: "主人的电脑开始播放音乐", detail: "音乐", valence: 1 });
+    assert.ok(perceived);
+    assert.equal(perceived.payload.novelty, 1);
+    // However much the host likes it, it reaches her only a little.
+    assert.ok(Math.abs(perceived.payload.valence) <= 0.2);
+    const rebuilt = replay(life.events());
+    assert.ok(rebuilt);
+    assert.deepEqual(advance(rebuilt, life.state.at), life.state);
+    assert.ok(life.recall({ text: "电脑 音乐" }).some((item) => item.id === perceived.id));
+  });
+
+  it("notices nothing in her sleep, and the same thing again is less new", async () => {
+    const setup = newLife();
+    const life = await setup.open();
+    const novelty: number[] = [];
+    for (let minute = 0; minute < 3; minute++) {
+      setup.set(BIRTH + 4 * HOUR + minute * 60_000);
+      novelty.push((await life.perceive({ source: "rss", what: "订阅里有新文章", detail: "科技" }))!.payload.novelty);
+    }
+    assert.deepEqual(novelty, [1, 0.5, 0.333]);
+    setup.set(Date.parse("2026-11-02T02:00:00+08:00"));
+    const count = life.events().length;
+    assert.equal(await life.perceive({ source: "machine", what: "电脑风扇转得很响" }), undefined);
+    assert.ok(life.state.asleep);
+    assert.ok(!life.events().slice(count).some((event) => event.kind === "perceived" && event.payload.source === "machine"));
+  });
+
+  it("comes to like or dislike what she keeps noticing, over days", async () => {
+    const setup = newLife();
+    const life = await setup.open();
+    for (let day = 0; day < 6; day++) {
+      setup.set(BIRTH + day * 24 * HOUR + 5 * HOUR);
+      await life.perceive({ source: "machine", what: "主人的电脑开始播放音乐", detail: "音乐", valence: 1 });
+    }
+    const belief = life.state.beliefs["taste:machine:音乐"];
+    assert.ok(belief, "a taste formed");
+    assert.match(belief.statement, /音乐/u);
+    assert.ok(life.explain(belief.eventId).some((event) => event.kind === "perceived"));
+  });
+
+  it("keeps the kernel's own senses to itself", async () => {
+    const life = await newLife().open();
+    await assert.rejects(life.perceive({ source: "weather", what: "下雪了" }), /keeps for itself/u);
+    await assert.rejects(life.perceive({ source: "two words", what: "x" }));
+  });
+});
+
 describe("the mind is replaceable", () => {
   it("keeps who she is when the mind changes", async () => {
     const setup = newLife();

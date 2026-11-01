@@ -30,6 +30,9 @@ The life kernel. Isla stops describing a character in a prompt and starts giving
   cover and mention; going over them in sleep strengthens what they mention. A question about a
   week or month is answered with its chapter; the last week and month stay among the facts.
 - `@isla/life`: weather tastes read as "晴天", not "weather:晴".
+- `@isla/life`: `Life.perceive()`: things outside her room enter as `perceived` events. Asleep
+  she notices nothing; the host's rating reaches her only a little; the same thing again within
+  a day is less new; with a `detail`, repeated perceptions become a taste.
 - `@isla/life`: `Life.note()` / `noted`: what she keeps about someone, by topic, resting on
   something they said; pending items and `done`. Notes about the person she is talking to stay
   among her facts, pending ones first. In the eval, reworded questions find 44–50% with notes

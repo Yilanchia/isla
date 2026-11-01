@@ -79,6 +79,27 @@ export interface SpeakInput {
   grounds?: string[];
 }
 
+export interface PerceiveInput {
+  /** Where it came from, e.g. `machine`, `calendar`, `rss`. One word; feelings about it are kept per source. */
+  source: string;
+  /** What she noticed, as she would say it: "主人的电脑开始播放音乐". */
+  what: string;
+  /**
+   * What it is, for learning what she likes, e.g. `music` or `news:tech`. Without it she still
+   * notices, but does not form a taste.
+   */
+  detail?: string;
+  /** How the host rates it, -1 to 1. She is moved by it only a little; her temperament decides the rest. */
+  valence?: number;
+}
+
+/** The world she lives in reports under these; a host cannot pretend to be it. */
+const FORBIDDEN_SOURCES = new Set(["weather"]);
+/** A perception from outside moves her at most this much before her own affinity and habituation. */
+const MAX_PERCEIVED_VALENCE = 0.15;
+/** The same thing again within this window is less new each time. */
+const HABITUATION_MS = 24 * HOUR;
+
 export interface NoteInput {
   personId: string;
   topic: string;
@@ -338,6 +359,58 @@ export class Life {
    */
   recall(cue: RecallCue): Recollection[] {
     return this.memory.recall(cue, Math.max(this.current.at, this.cursor));
+  }
+
+  /**
+   * Something outside her room happens and she notices it. It enters as a logged event, so her
+   * life stays a function of the log: replayed, she notices it again in the same way. Asleep, she
+   * does not notice anything and nothing is recorded.
+   *
+   * The host may say how pleasant it is, but only a little of that reaches her: how she feels
+   * about it is her own (a seeded affinity, like everything else she likes), and the same thing
+   * many times in a day stops being news.
+   */
+  perceive(input: PerceiveInput): Promise<LifeEvent<"perceived"> | undefined> {
+    return this.serial(async () => {
+      const source = input.source.trim();
+      const what = input.what.trim();
+      if (!/^[\p{L}\p{N}_-]{1,32}$/u.test(source)) throw new Error("perceive() needs a one-word source");
+      if (!what || what.length > 200) throw new Error("perceive() needs a short description");
+      if (FORBIDDEN_SOURCES.has(source)) throw new Error(`"${source}" is a source the kernel keeps for itself`);
+      const at = Math.max(this.clock(), this.cursor);
+      await this.catchUp(at);
+      if (this.current.asleep) return undefined;
+      const state = advance(this.current, at);
+      const key = input.detail ? `${source}:${input.detail.trim()}` : source;
+      let seen = 0;
+      for (let index = this.log.length - 1; index >= 0; index--) {
+        const event = this.log[index]!;
+        if (event.at < at - HABITUATION_MS) break;
+        if (event.kind === "perceived" && event.payload.source === source && event.payload.detail === input.detail) seen++;
+      }
+      const novelty = round(1 / (1 + seen));
+      const hosted = Math.max(-1, Math.min(1, input.valence ?? 0)) * MAX_PERCEIVED_VALENCE;
+      const valence = round((hosted + affinity(state, key) * 0.05) * novelty);
+      const perceived = await this.emit(at, {
+        kind: "perceived",
+        payload: { what, source, ...(input.detail ? { detail: input.detail.trim() } : {}), valence, novelty },
+      });
+      if (Math.abs(valence) >= 0.02) {
+        const about = input.detail ? key : undefined;
+        await this.emit(at, {
+          kind: "felt",
+          causes: [perceived.id],
+          payload: {
+            valence,
+            arousal: round(0.05 * novelty),
+            reason: valence > 0 ? `${what}，有点高兴` : `${what}，有点烦`,
+            ...(about ? { about } : {}),
+          },
+        });
+        if (about) await this.learn(at, about);
+      }
+      return perceived;
+    });
   }
 
   /**

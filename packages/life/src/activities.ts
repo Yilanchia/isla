@@ -201,6 +201,8 @@ export function tasteLabel(key: string, world: World, names: Record<string, stri
     const id = key.slice("talk:".length);
     return `和${names[id] ?? id}说话`;
   }
+  // Perceptions from the host: `source:detail`. The detail is the host's own word for the thing.
+  if (key.includes(":")) return key.slice(key.indexOf(":") + 1);
   switch (key) {
     case "talk":
       return "和人说话";
