@@ -20,6 +20,9 @@ importers:
       '@isla/core':
         specifier: workspace:*
         version: link:../packages/core
+      '@isla/life':
+        specifier: workspace:*
+        version: link:../packages/life
       '@isla/providers':
         specifier: workspace:*
         version: link:../packages/providers

@@ -112,6 +112,17 @@ export interface LifeEventPayloads {
      */
     external?: boolean;
   } & Grounding;
+  /**
+   * She searched her memory on purpose. Every id found counts as using that memory, which keeps
+   * it clear for longer; memories that only came to mind on their own are not recorded.
+   */
+  recalled: {
+    cue: string;
+    /** Ids of the events she found, best first. Empty when nothing came back. */
+    found: string[];
+    /** Who asked, when she was looking something up for someone. */
+    personId?: string;
+  };
   "mind.changed": { from: string; to: string };
   /** She was not running: the host was off for longer than she can catch up on. */
   lapsed: { from: number; to: number };

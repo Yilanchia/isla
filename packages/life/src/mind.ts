@@ -174,9 +174,15 @@ export class InnerMind implements Mind {
     const summary = summarize(today);
     const parts = [...summary.parts];
     used.push(...summary.used);
-    for (const fact of today.filter((item) => item.text.includes("对你说"))) {
-      parts.push(bare(fact.text).replace(/对你说：.*/u, "来和我说话了"));
-      used.push(fact);
+    // One line per person, resting on everything they said that day.
+    const talks = new Map<string, Fact[]>();
+    for (const fact of today.filter((item) => item.text.includes("对你说："))) {
+      const who = bare(fact.text).replace(/对你说：.*/u, "");
+      talks.set(who, [...(talks.get(who) ?? []), fact]);
+    }
+    for (const [who, said] of talks) {
+      parts.push(said.length === 1 ? `${who}来和我说话了` : `${who}来和我说了 ${said.length} 次话`);
+      used.push(...said);
     }
     for (const fact of today.filter((item) => item.text.includes("发现："))) {
       parts.push(fact.text.replace(/^.*发现：/u, ""));

@@ -17,6 +17,7 @@ import { describeEvent, gatherFacts, whenLabel, type Fact, type GatherOptions } 
 import type { Genome } from "./genome.js";
 import { InnerMind, type Mind, type MindRequest } from "./mind.js";
 import { seededRandom } from "./random.js";
+import { MemoryIndex, memorySettings, type RecallCue, type Recollection } from "./recall.js";
 import { advance, dayKey, fold, replay, type LifeState } from "./state.js";
 import { describeWeather, type World } from "./world.js";
 
@@ -135,6 +136,7 @@ export class Life {
   private readonly crisisReply: string;
   private readonly logger: { warn(message: string, error?: unknown): void };
   private readonly listeners = new Set<(event: LifeEvent) => void>();
+  private readonly memory: MemoryIndex;
   private queue: Promise<unknown> = Promise.resolve();
   /** Time up to which decisions have been made; may be ahead of the last event. */
   private cursor: number;
@@ -154,6 +156,8 @@ export class Life {
     this.log = log;
     this.current = state;
     this.cursor = state.at;
+    this.memory = new MemoryIndex(memorySettings(state.genome));
+    for (const event of log) this.memory.add(event);
   }
 
   /** Opens a life from its archive, or gives birth to it when the archive is empty. */
@@ -311,10 +315,39 @@ export class Life {
     });
   }
 
-  /** The facts a mind would be given right now. */
-  facts(options: Partial<GatherOptions> = {}): Fact[] {
+  /** The facts a mind would be given right now. With a `cue`, what it brings to mind is included. */
+  facts(options: Partial<Omit<GatherOptions, "memory">> = {}): Fact[] {
     const now = Math.max(this.current.at, this.cursor);
-    return gatherFacts(this.state, this.log, { now, ...options });
+    return gatherFacts(this.state, this.log, { now, memory: this.memory, ...options });
+  }
+
+  /**
+   * What a cue brings to mind on its own, without her looking for it. Changes nothing: a memory
+   * that merely surfaces is not strengthened, only one that is used.
+   */
+  recall(cue: RecallCue): Recollection[] {
+    return this.memory.recall(cue, Math.max(this.current.at, this.cursor));
+  }
+
+  /**
+   * She searches her memory on purpose. Everything that matches comes back, clear or not, and
+   * the search is recorded: what she found this way stays clear for longer.
+   */
+  remember(cue: RecallCue): Promise<Recollection[]> {
+    return this.serial(async () => {
+      const at = Math.max(this.clock(), this.cursor);
+      await this.catchUp(at);
+      const found = this.memory.recall(cue, at, true);
+      await this.emit(at, {
+        kind: "recalled",
+        payload: {
+          cue: cue.text ?? "",
+          found: found.map((item) => item.id),
+          ...(cue.personId ? { personId: cue.personId } : {}),
+        },
+      });
+      return found;
+    });
   }
 
   /** The event and everything that led to it, oldest first. */
@@ -710,7 +743,12 @@ export class Life {
 
   private async reply(at: number, heard: LifeEvent<"heard">): Promise<LifeEvent<"said">> {
     const state = advance(this.current, at);
-    const facts = gatherFacts(state, this.log, { now: at, personId: heard.payload.personId });
+    const facts = gatherFacts(state, this.log, {
+      now: at,
+      personId: heard.payload.personId,
+      memory: this.memory,
+      cue: heard.payload.text,
+    });
     const written = await this.compose(at, {
       task: "reply",
       facts,
@@ -818,6 +856,7 @@ export class Life {
     }
     await this.archive.append(events);
     this.log.push(...events);
+    for (const event of events) this.memory.add(event);
     this.current = state;
     this.cursor = Math.max(this.cursor, time);
     for (const event of events) {

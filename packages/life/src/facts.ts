@@ -1,7 +1,8 @@
 import { localTime } from "@isla/core";
-import { clockLabel, DAY } from "./clock.js";
+import { clockLabel, DAY, localDayRange } from "./clock.js";
 import type { LifeEvent } from "./events.js";
-import { dayKey, type LifeState } from "./state.js";
+import type { MemoryIndex } from "./recall.js";
+import type { LifeState } from "./state.js";
 
 /**
  * One thing she can truthfully say about herself, with where it comes from.
@@ -86,6 +87,13 @@ export function describeEvent(event: LifeEvent, now: number, timezone: string): 
   }
 }
 
+function findLast<T>(items: readonly T[], test: (item: T) => boolean): T | undefined {
+  for (let index = items.length - 1; index >= 0; index--) {
+    if (test(items[index]!)) return items[index];
+  }
+  return undefined;
+}
+
 export interface GatherOptions {
   now: number;
   /** How far back events are offered. Default 36 hours. */
@@ -95,6 +103,12 @@ export interface GatherOptions {
   /** Conversation partner, so the recent exchange with them is included. */
   personId?: string;
   limit?: number;
+  /** Her memory. With a `cue`, older things the cue brings to mind are included. */
+  memory?: MemoryIndex;
+  /** Usually what was just said to her. */
+  cue?: string;
+  /** How many memories a cue may bring back. Default 4. */
+  recallLimit?: number;
 }
 
 /**
@@ -126,7 +140,8 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
       facts.push({ id: belief.eventId, text: `你对自己的认识：${belief.statement}` });
     }
   }
-  const diary = [...events].reverse().find((event) => event.kind === "reflected");
+  // The log is in time order, so every lookup below walks back from the end and stops early.
+  const diary = findLast(events, (event) => event.kind === "reflected");
   const used = new Set(facts.map((fact) => fact.id));
   const pushEvent = (event: LifeEvent): void => {
     if (used.has(event.id)) return;
@@ -137,25 +152,50 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
   };
   if (diary) pushEvent(diary);
   if (options.personId) {
-    const exchange = events
-      .filter(
-        (event) =>
-          (event.kind === "heard" || event.kind === "said") &&
-          event.payload.personId === options.personId,
-      )
-      .slice(-8);
-    exchange.forEach(pushEvent);
+    const exchange: LifeEvent[] = [];
+    for (let index = events.length - 1; index >= 0 && exchange.length < 8; index--) {
+      const event = events[index]!;
+      if ((event.kind === "heard" || event.kind === "said") && event.payload.personId === options.personId) {
+        exchange.push(event);
+      }
+    }
+    exchange.reverse().forEach(pushEvent);
   }
-  const since = now - (options.lookbackMs ?? 1.5 * DAY);
   const limit = options.limit ?? 48;
-  const inWindow = (event: LifeEvent): boolean =>
-    options.focusDay ? dayKey(event.at, timezone) === options.focusDay : event.at >= since;
-  const recent = events.filter(
-    (event) => inWindow(event) && event.kind !== "heard" && event.kind !== "said",
-  );
+  const window = options.focusDay
+    ? localDayRange(options.focusDay, timezone)
+    : { from: now - (options.lookbackMs ?? 1.5 * DAY), to: Infinity };
+  const recent: LifeEvent[] = [];
+  for (let index = events.length - 1; index >= 0; index--) {
+    const event = events[index]!;
+    if (event.at < window.from) break;
+    // Talk normally comes in through the exchange above; looking back on a day, it is part of it.
+    const talk = event.kind === "heard" || event.kind === "said";
+    if (event.at < window.to && (options.focusDay || !talk)) recent.push(event);
+  }
+  recent.reverse();
   // Keep the newest events that fit, but list them in the order they happened.
   const described = recent.filter((event) => !used.has(event.id) && describeEvent(event, now, timezone));
-  const room = Math.max(0, limit - facts.length);
-  described.slice(Math.max(0, described.length - room)).forEach(pushEvent);
+  const reserve = options.memory && options.cue ? (options.recallLimit ?? 4) : 0;
+  const room = Math.max(0, limit - facts.length - reserve);
+  const shown = described.slice(Math.max(0, described.length - room));
+  const recollections =
+    reserve > 0 && options.memory && options.cue
+      ? options.memory.recall(
+          {
+            text: options.cue,
+            ...(options.personId ? { personId: options.personId } : {}),
+            limit: reserve,
+            exclude: new Set([...used, ...shown.map((event) => event.id)]),
+          },
+          now,
+        )
+      : [];
+  shown.forEach(pushEvent);
+  for (const recollection of recollections.sort((left, right) => left.at - right.at)) {
+    if (used.has(recollection.id)) continue;
+    used.add(recollection.id);
+    facts.push({ id: recollection.id, text: `你想起：${recollection.text}` });
+  }
   return facts;
 }

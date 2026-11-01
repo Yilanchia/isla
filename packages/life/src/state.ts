@@ -281,6 +281,9 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
           : state.pending,
       };
     }
+    case "recalled":
+      // What she remembers is not part of her state: the memory index reads it from the log.
+      return next;
     case "mind.changed":
       return { ...next, mind: event.payload.to };
     case "lapsed": {

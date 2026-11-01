@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@isla/core": "workspace:*",
+    "@isla/life": "workspace:*",
     "@isla/providers": "workspace:*"
   },
   "devDependencies": {

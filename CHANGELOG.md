@@ -17,6 +17,14 @@ The life kernel. Isla stops describing a character in a prompt and starts giving
 - `@isla/life`: `listen()` / `speak()` for hosts whose own agent does the talking. Being called
   wakes her (`woke.by`, a grumble when tired); external replies are grounded like a mind's and do
   not use the mind budget; a night interruption does not use up the next day's diary.
+- `@isla/life`: memory. `MemoryIndex` over the log: ACT-R activation with Pavlik–Anderson
+  spacing, BM25 over `Intl.Segmenter` words, Chinese time words, clear / vague / faint
+  recollections. `Life.recall()` (on its own, changes nothing) and `Life.remember()` (on
+  purpose, recorded as `recalled`). `gatherFacts({ cue })` adds what the cue brings to mind.
+  Genome `memory: { decay, records }`. The nightly diary now covers the day's conversations.
+- `@isla/life`: `gatherFacts` walks the log back from the end instead of scanning all of it;
+  `@isla/core`: `localTime()` reuses one formatter per zone. A simulated month: 7.8 s → 0.15 s.
+- `evals`: a year-long memory eval with regression gates.
 - `@isla/core`: `OpenAICompatibleProvider.complete({ system, user })`.
 - `examples/life`: a life on this machine's clock, with `--fast <hours>`, `/why` and `/state`.
 - `apps/qq-service` removed.

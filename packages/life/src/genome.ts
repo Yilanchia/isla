@@ -28,6 +28,21 @@ export const genomeSchema = z.object({
       sociability: z.number().min(0.2).max(2).default(1),
     })
     .default({}),
+  memory: z
+    .object({
+      /**
+       * How fast a memory fades between the times it is used (the ACT-R decay `d`). 0.5 is
+       * human-like; lower keeps things clear for longer. Nothing is ever deleted, only harder to
+       * recall on its own.
+       */
+      decay: z.number().min(0.1).max(0.9).default(0.5),
+      /**
+       * Kinds of events she keeps an exact record of, e.g. `["heard", "said"]` for a butler who
+       * keeps a transcript. When she searches on purpose these are always clear, however old.
+       */
+      records: z.array(z.string()).default([]),
+    })
+    .default({}),
   /** Inborn leaning toward or away from an activity, e.g. `{ read: 0.2 }`. */
   inclinations: z.record(z.string(), z.number().min(-0.5).max(0.5)).default({}),
   /** How she talks, for minds that use a language model. Not a list of things she has done. */

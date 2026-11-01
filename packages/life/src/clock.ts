@@ -32,6 +32,19 @@ export function isWakingHour(hour: number, wakeHour: number, sleepHour: number):
     : hour >= wakeHour || hour < sleepHour;
 }
 
+/** The instant a local calendar day begins. Out-of-range days roll over (day 0 is the last of the month before). */
+export function localMidnight(year: number, month: number, day: number, timezone: string): number {
+  const wall = Date.UTC(year, month - 1, day);
+  const guess = wall - zoneOffset(wall, timezone);
+  return wall - zoneOffset(guess, timezone);
+}
+
+/** Start and end of a local day given as `YYYY-MM-DD`. */
+export function localDayRange(day: string, timezone: string): { from: number; to: number } {
+  const [year, month, date] = day.split("-").map(Number) as [number, number, number];
+  return { from: localMidnight(year, month, date, timezone), to: localMidnight(year, month, date + 1, timezone) };
+}
+
 export function clockLabel(at: number, timezone: string): string {
   const time = localTime(at, timezone);
   return `${String(time.hour).padStart(2, "0")}:${String(time.minute).padStart(2, "0")}`;

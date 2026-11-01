@@ -7,5 +7,6 @@ export * from "./genome.js";
 export * from "./life.js";
 export * from "./mind.js";
 export * from "./random.js";
+export * from "./recall.js";
 export * from "./state.js";
 export * from "./world.js";
