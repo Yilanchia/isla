@@ -31,7 +31,7 @@ export interface World {
 
 const WEATHERS = ["晴", "多云", "阴", "小雨"] as const;
 
-const PLEASANTNESS: Record<string, number> = { 晴: 0.08, 多云: 0.03, 阴: -0.04, 小雨: 0, 雨: -0.02, 大雨: -0.05, 雷雨: -0.05, 雪: 0.05, 雾: -0.03 };
+const PLEASANTNESS: Record<string, number> = { 晴: 0.08, 多云: 0.03, 阴: -0.04, 小雨: 0, 雨: -0.02, 大雨: -0.05, 雷雨: -0.05, 雪: 0.05, 雾: -0.03, 霾: -0.06 };
 
 /** Public-domain texts, so the sample world can ship with something worth reading. */
 export const SAMPLE_BOOKS: Book[] = [
@@ -120,6 +120,8 @@ export function describeWeather(kind: string): string {
       return "外面下雪了";
     case "雾":
       return "外面起雾了";
+    case "霾":
+      return "外面起霾了";
     case "阴":
       return "天阴了下来";
     case "多云":

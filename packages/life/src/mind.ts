@@ -214,7 +214,14 @@ export class InnerMind implements Mind {
   }
 
   private note(request: MindRequest): MindResponse {
-    const reading = [...request.facts].reverse().find((fact) => isEvent(fact) && fact.text.includes("读到「"));
+    const latest = [...request.facts].reverse().find((fact) => isEvent(fact) && /读到「|翻到「/u.test(fact.text));
+    // A line from a book is something to turn over; an article or a commit she notes for what it was.
+    const passage = latest && /，读到「/u.test(latest.text);
+    if (latest && !passage) {
+      const line = bare(latest.text.replace(/^你想起：/u, "")).replace(/^(记不太清了，好像是)?[^，：]*?[，：]?(?=(读到|翻到)「)/u, "");
+      return { text: `记一下：${line}。`, grounds: [latest.id] };
+    }
+    const reading = latest;
     if (reading) {
       const passage = /读到「(.+?)」/u.exec(reading.text)?.[1] ?? "";
       return { text: `「${passage}」这句，我又想了一遍。`, grounds: [reading.id] };

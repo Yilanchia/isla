@@ -89,6 +89,19 @@ describe("her shelves", () => {
     assert.ok(found.length > 0, "what she read is part of her memory");
   });
 
+  it("writes about an article as an article, not as a line of poetry", async () => {
+    const { life, at } = await open();
+    for (let day = 0; day < 3; day++) {
+      await at(BIRTH + day * DAY + 2 * HOUR);
+      for (let n = 0; n < 5; n++) await life.stock(article(day * 10 + n, ["AI"]));
+    }
+    await at(BIRTH + 3 * DAY);
+    const notes = life.events().filter((event): event is LifeEvent<"wrote"> => event.kind === "wrote");
+    assert.ok(notes.length > 0);
+    assert.ok(!notes.some((note) => /文章 \d+」这句，我又想了一遍/u.test(note.payload.text)), notes.map((note) => note.payload.text).join(" / "));
+    assert.ok(notes.some((note) => /^记一下：读到「文章 \d+」/u.test(note.payload.text)));
+  });
+
   it("knows what is still waiting on her shelves, and when she sleeps", async () => {
     const { life } = await open();
     for (let n = 0; n < 5; n++) await life.stock(article(n, ["AI"]));
