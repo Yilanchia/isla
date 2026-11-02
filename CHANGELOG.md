@@ -33,6 +33,8 @@ The life kernel. Isla stops describing a character in a prompt and starts giving
 - `@isla/life`: `Life.perceive()`: things outside her room enter as `perceived` events. Asleep
   she notices nothing; the host's rating reaches her only a little; the same thing again within
   a day is less new; with a `detail`, repeated perceptions become a taste.
+- `@isla/life`: `RecallCue.similar` / `gatherFacts({ similar })`: closeness in meaning from the
+  host's own semantic search, as one more cue beside the words. The kernel still calls no model.
 - `@isla/life`: getting to know someone. Each person has talk days, an hour-of-day habit and a
   bond (初识 → 熟悉 → 亲近 → 信赖) that deepens with days spent talking and liking it, never with
   one long day, and never goes back; each step is a `bonded` event she can remember.

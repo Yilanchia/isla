@@ -144,6 +144,8 @@ export interface GatherOptions {
   notesLimit?: number;
   /** How she names each shelf, e.g. `{ news: "看新闻" }`. */
   shelfLabels?: Record<string, string>;
+  /** Memories close in meaning to the cue, from the host's semantic search. See `RecallCue.similar`. */
+  similar?: ReadonlyMap<string, number>;
 }
 
 /**
@@ -275,6 +277,7 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
             ...(options.personId ? { personId: options.personId } : {}),
             limit: reserve,
             exclude: new Set([...used, ...shown.map((event) => event.id)]),
+            ...(options.similar ? { similar: options.similar } : {}),
           },
           now,
         )

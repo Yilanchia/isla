@@ -37,6 +37,11 @@ export interface RecallCue {
   limit?: number;
   /** Ids already in front of her, which need not come back. */
   exclude?: ReadonlySet<string>;
+  /**
+   * Memories close in meaning to the cue, 0 to 1, from the host's own semantic search. The kernel
+   * calls no model; a host that has one adds this as one more cue, beside the words.
+   */
+  similar?: ReadonlyMap<string, number>;
 }
 
 export interface MemorySettings {
@@ -70,6 +75,7 @@ const MATCH_WEIGHT = 3;
 const PERSON_BONUS = 0.4;
 const TIME_BONUS = 1;
 const TALK_BONUS = 0.5;
+const SEMANTIC_WEIGHT = 0.8;
 const FIT_BONUS = 2;
 const SUMMARY_PENALTY = 0.5;
 const TALK_WORDS = /聊|说|谈|讲|告诉|提过|问过|答应|交代|约好/u;
@@ -244,6 +250,11 @@ export class MemoryIndex {
     // "我们聊了什么", "你答应过什么": asking about a conversation is a cue for conversations.
     const talk = TALK_WORDS.test(cue.text ?? "");
     const match = this.match(terms);
+    // Close in meaning counts like sharing words, a little less: words are what was actually said.
+    for (const [id, closeness] of cue.similar ?? []) {
+      const value = Math.max(0, Math.min(1, closeness)) * SEMANTIC_WEIGHT;
+      if (this.traces.has(id) && value > (match.get(id) ?? 0)) match.set(id, value);
+    }
     this.spread(match);
     // A time word is a cue of its own: what happened then comes back even if no word matches.
     if (range) {
