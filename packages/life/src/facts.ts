@@ -117,6 +117,8 @@ export interface GatherOptions {
   recallLimit?: number;
   /** How many notes about the person are always in front of her. Default 12. */
   notesLimit?: number;
+  /** How she names each shelf, e.g. `{ news: "看新闻" }`. */
+  shelfLabels?: Record<string, string>;
 }
 
 /**
@@ -149,6 +151,20 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
     }
   }
   // The log is in time order, so every lookup below walks back from the end and stops early.
+  const { wakeHour, sleepHour } = state.genome.chronotype;
+  facts.push({ id: "state:rhythm", text: `你每天 ${sleepHour}:00 左右睡下，${wakeHour}:00 左右醒来；睡着的时候有人叫你，你会醒` });
+  // What is waiting on her shelves, newest first, so she can bring it up instead of looking it up.
+  if (!options.focusDay) {
+    for (const [shelf, items] of Object.entries(state.shelves)) {
+      if (items.length === 0) continue;
+      const titles = items.slice(-3).reverse().map((item) => `「${quote(item.title, 30)}」（${item.source}）`);
+      const label = options.shelfLabels?.[shelf] ?? shelf;
+      facts.push({
+        id: `state:shelf:${shelf}`,
+        text: `${label}：还有 ${items.length} 样没看，最新的是${titles.join("、")}`,
+      });
+    }
+  }
   // What she keeps about the person in front of her: what is still to be done first, then facts.
   if (options.personId && !options.focusDay) {
     const name = state.people[options.personId]?.name ?? "对方";

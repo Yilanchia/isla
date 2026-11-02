@@ -384,10 +384,14 @@ export class Life {
     });
   }
 
+  private shelfLabels(): Record<string, string> {
+    return Object.fromEntries([...this.kinds.values()].flatMap((kind) => (kind.label ? [[kind.id, kind.label]] : [])));
+  }
+
   /** The facts a mind would be given right now. With a `cue`, what it brings to mind is included. */
   facts(options: Partial<Omit<GatherOptions, "memory">> = {}): Fact[] {
     const now = Math.max(this.current.at, this.cursor);
-    return gatherFacts(this.state, this.log, { now, memory: this.memory, ...options });
+    return gatherFacts(this.state, this.log, { now, memory: this.memory, shelfLabels: this.shelfLabels(), ...options });
   }
 
   /**
@@ -450,10 +454,20 @@ export class Life {
       const what = input.what.trim();
       if (!/^[\p{L}\p{N}_-]{1,32}$/u.test(source)) throw new Error("perceive() needs a one-word source");
       if (!what || what.length > 200) throw new Error("perceive() needs a short description");
-      if (FORBIDDEN_SOURCES.has(source)) throw new Error(`"${source}" is a source the kernel keeps for itself`);
+      const hostSky = this.world.sky === "host" && source === "weather";
+      if (FORBIDDEN_SOURCES.has(source) && !hostSky) {
+        throw new Error(`"${source}" is a source the kernel keeps for itself`);
+      }
       const at = Math.max(this.clock(), this.cursor);
       await this.catchUp(at);
       if (this.current.asleep) return undefined;
+      if (hostSky) {
+        const kind = input.detail?.trim();
+        if (!kind) throw new Error('the sky needs its kind in `detail`, e.g. "小雨"');
+        // The same sky again is not news; she only looks up when it changes.
+        if (kind === this.current.weather) return undefined;
+        return this.seeSky(at, kind, what);
+      }
       const state = advance(this.current, at);
       const key = input.detail ? `${source}:${input.detail.trim()}` : source;
       let seen = 0;
@@ -689,27 +703,30 @@ export class Life {
 
   /** She notices the sky whenever it is different from the last time she looked. */
   private async noticeWeather(at: number): Promise<void> {
+    // A real sky is reported by the host; she does not make one up.
+    if (this.world.sky === "host") return;
     const state = this.current;
     const kind = this.world.weather(at, state.genome.timezone);
     if (kind === state.weather) return;
-    const now = advance(state, at);
+    await this.seeSky(at, kind, describeWeather(kind));
+  }
+
+  /** The sky changed and she noticed: a perception, a feeling, perhaps a taste. */
+  private async seeSky(at: number, kind: string, what: string): Promise<LifeEvent<"perceived">> {
+    const now = advance(this.current, at);
     const valence = round(this.world.pleasantness(kind) + affinity(now, `weather:${kind}`) * 0.05);
     const perceived = await this.emit(at, {
       kind: "perceived",
-      payload: { what: describeWeather(kind), source: "weather", detail: kind, valence, novelty: 0.3 },
+      payload: { what, source: "weather", detail: kind, valence, novelty: 0.3 },
     });
-    const reason =
-      valence > 0.03
-        ? `${describeWeather(kind)}，心情跟着好了一点`
-        : valence < -0.03
-          ? `${describeWeather(kind)}，有点闷`
-          : describeWeather(kind);
+    const reason = valence > 0.03 ? `${what}，心情跟着好了一点` : valence < -0.03 ? `${what}，有点闷` : what;
     await this.emit(at, {
       kind: "felt",
       causes: [perceived.id],
       payload: { valence, arousal: 0.02, reason, about: `weather:${kind}` },
     });
     await this.learn(at, `weather:${kind}`);
+    return perceived;
   }
 
   private async startActivity(at: number): Promise<void> {

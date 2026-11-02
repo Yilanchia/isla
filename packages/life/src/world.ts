@@ -17,16 +17,21 @@ export interface Book {
  */
 export interface World {
   readonly books: Book[];
+  /**
+   * `own`: the world makes up its sky from the seed. `host`: the sky out of her window is a real
+   * one, and the host tells her when it changes with `perceive({ source: "weather" })`.
+   */
+  readonly sky?: "own" | "host";
   weather(at: number, timezone: string): string;
-  /** What she sees out of the window. */
-  view(at: number, timezone: string): string;
+  /** What she sees out of the window; `weather` is the sky she last saw, when the host owns it. */
+  view(at: number, timezone: string, weather?: string): string;
   /** How pleasant a kind of weather is in itself, before her own taste is added. */
   pleasantness(weather: string): number;
 }
 
 const WEATHERS = ["晴", "多云", "阴", "小雨"] as const;
 
-const PLEASANTNESS: Record<string, number> = { 晴: 0.08, 多云: 0.03, 阴: -0.04, 小雨: 0 };
+const PLEASANTNESS: Record<string, number> = { 晴: 0.08, 多云: 0.03, 阴: -0.04, 小雨: 0, 雨: -0.02, 大雨: -0.05, 雷雨: -0.05, 雪: 0.05, 雾: -0.03 };
 
 /** Public-domain texts, so the sample world can ship with something worth reading. */
 export const SAMPLE_BOOKS: Book[] = [
@@ -63,6 +68,8 @@ export interface RoomOptions {
   /** Seeds the weather. Two rooms with the same seed have the same sky. */
   seed: string;
   books?: Book[];
+  /** `host`: her window looks onto a real sky the host reports; nothing is made up. */
+  sky?: "own" | "host";
 }
 
 /** A small room with a window and a bookshelf. */
@@ -77,10 +84,11 @@ export function createRoom(options: RoomOptions): World {
   };
   return {
     books,
+    sky: options.sky ?? "own",
     weather,
-    view(at, timezone) {
+    view(at, timezone, seen) {
       const time = localTime(at, timezone);
-      const sky = weather(at, timezone);
+      const sky = seen ?? weather(at, timezone);
       const light =
         time.partOfDay === "深夜" || time.partOfDay === "凌晨"
           ? "外面很黑，只有远处几盏灯"
@@ -89,7 +97,7 @@ export function createRoom(options: RoomOptions): World {
             : time.partOfDay === "晚上"
               ? "楼下的路灯亮了"
               : "楼下有人走过";
-      const sound = sky === "小雨" ? "，雨点打在窗台上" : sky === "晴" ? "，阳光落在窗框上" : "";
+      const sound = /雨/u.test(sky) ? "，雨点打在窗台上" : sky === "晴" ? "，阳光落在窗框上" : sky === "雪" ? "，雪落在窗台上" : "";
       return `${light}${sound}`;
     },
     pleasantness(kind) {
@@ -102,11 +110,23 @@ export function describeWeather(kind: string): string {
   switch (kind) {
     case "小雨":
       return "外面下起了小雨";
+    case "雨":
+      return "外面下雨了";
+    case "大雨":
+      return "外面下起了大雨";
+    case "雷雨":
+      return "外面打雷下雨了";
+    case "雪":
+      return "外面下雪了";
+    case "雾":
+      return "外面起雾了";
     case "阴":
       return "天阴了下来";
     case "多云":
       return "云多了起来";
-    default:
+    case "晴":
       return "天晴了";
+    default:
+      return `外面${kind}`;
   }
 }

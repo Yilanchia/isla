@@ -88,6 +88,52 @@ describe("her shelves", () => {
     const found = life.recall({ text: "文章 摘要" });
     assert.ok(found.length > 0, "what she read is part of her memory");
   });
+
+  it("knows what is still waiting on her shelves, and when she sleeps", async () => {
+    const { life } = await open();
+    for (let n = 0; n < 5; n++) await life.stock(article(n, ["AI"]));
+    const facts = life.facts().map((fact) => fact.text);
+    assert.ok(facts.some((text) => /^看新闻：还有 5 样没看，最新的是「文章 4」（测试订阅）/u.test(text)), facts.join("\n"));
+    assert.ok(facts.some((text) => /每天 23:00 左右睡下，7:00 左右醒来/u.test(text)));
+  });
+});
+
+describe("a real sky", () => {
+  async function hostSky() {
+    let now = BIRTH;
+    const life = await Life.open({
+      genome: ISLA_GENOME,
+      world: createRoom({ seed: "room", books: [], sky: "host" }),
+      archive: new MemoryArchive(),
+      clock: () => now,
+      lifeId: "sky",
+    });
+    return { life, at: async (time: number) => { await life.advanceTo(time); now = time; } };
+  }
+
+  it("makes up no weather when the host owns the sky, and sees only what it reports", async () => {
+    const { life, at } = await hostSky();
+    await at(BIRTH + 12 * HOUR);
+    const weatherOf = () => life.events().filter((event) => event.kind === "perceived" && event.payload.source === "weather");
+    assert.equal(weatherOf().length, 0, "nothing invented");
+    assert.ok(!started(life).some((event) => event.payload.activity === "gaze"), "nothing to look at yet");
+
+    const rain = await life.perceive({ source: "weather", what: "成都下起了小雨", detail: "小雨" });
+    assert.ok(rain);
+    assert.equal(life.state.weather, "小雨");
+    assert.equal(await life.perceive({ source: "weather", what: "成都还在下小雨", detail: "小雨" }), undefined, "the same sky is not news");
+    await at(BIRTH + 16 * HOUR);
+    const gazes = started(life).filter((event) => event.payload.activity === "gaze");
+    for (const gaze of gazes) {
+      assert.ok(gaze.payload.material?.kind === "view" && /雨点/u.test(gaze.payload.material.text), "she sees the rain that was reported");
+    }
+    assert.ok(life.facts().some((fact) => fact.text.includes("成都下起了小雨")));
+  });
+
+  it("keeps the weather source to itself when the world owns the sky", async () => {
+    const { life } = await open();
+    await assert.rejects(life.perceive({ source: "weather", what: "下雪了", detail: "雪" }), /keeps for itself/u);
+  });
 });
 
 describe("reaching out", () => {

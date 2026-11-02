@@ -33,6 +33,10 @@ The life kernel. Isla stops describing a character in a prompt and starts giving
 - `@isla/life`: `Life.perceive()`: things outside her room enter as `perceived` events. Asleep
   she notices nothing; the host's rating reaches her only a little; the same thing again within
   a day is less new; with a `detail`, repeated perceptions become a taste.
+- `@isla/life`: `createRoom({ sky: "host" })`: her window looks onto a real sky the host reports
+  with `perceive({ source: "weather" })`; nothing is made up, and the same sky twice is not news.
+  More kinds of weather (雨, 大雨, 雷雨, 雪, 雾).
+- `@isla/life`: her facts include her sleep rhythm and what is still waiting on each shelf.
 - `@isla/life`: shelves. `Life.stock()` puts an article, a commit or an episode on a shelf;
   `shelfActivity()` turns a shelf into a pastime she picks from by the tags she has come to like.
   What she read is in her log, memory and tastes; nothing is stocked twice.

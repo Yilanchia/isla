@@ -119,21 +119,24 @@ const read: ActivityKind = {
 const gaze: ActivityKind = {
   id: "gaze",
   motive: "curiosity",
-  utility({ state }) {
+  utility({ state, world }) {
+    // A real sky she has not been told about yet: there is nothing to look at.
+    if (world.sky === "host" && !state.weather) return undefined;
     return 0.12 + state.drives.curiosity * 0.4 + inclination(state, "gaze") + tasteMean(state, "gaze") * 0.5;
   },
   plan({ world, now, state, random }) {
+    const seen = world.sky === "host" ? state.weather : undefined;
     return {
       activity: "gaze",
       label: "在窗边看外面",
       durationMs: between(random, 15, 30),
       costPerHour: 0.02,
       satisfies: { curiosity: 0.12 },
-      material: { kind: "view", text: world.view(now, state.genome.timezone) },
+      material: { kind: "view", text: world.view(now, state.genome.timezone, seen) },
     };
   },
   feel({ state, world, now, random }) {
-    const weather = world.weather(now, state.genome.timezone);
+    const weather = world.sky === "host" ? (state.weather ?? "晴") : world.weather(now, state.genome.timezone);
     const valence =
       0.02 +
       world.pleasantness(weather) +
