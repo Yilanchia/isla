@@ -20,7 +20,7 @@ import type { Genome } from "./genome.js";
 import { InnerMind, type Mind, type MindRequest } from "./mind.js";
 import { seededRandom } from "./random.js";
 import { MemoryIndex, memorySettings, type RecallCue, type Recollection } from "./recall.js";
-import { advance, dayKey, fold, replay, type LifeState } from "./state.js";
+import { advance, BONDS, dayKey, fold, replay, type Bond, type LifeState } from "./state.js";
 import { describeWeather, type World } from "./world.js";
 
 type Draft = {
@@ -87,6 +87,13 @@ export interface SpeakInput {
   /** Ids of offered facts the text rests on. Ids that were not offered are kept as rejected. */
   grounds?: string[];
 }
+
+/** What it takes to know someone one step better. */
+const BOND_STEPS: Array<{ bond: Bond; talkDays: number; exchanges: number; days: number; warmth: number }> = [
+  { bond: "familiar", talkDays: 4, exchanges: 30, days: 3, warmth: 0 },
+  { bond: "close", talkDays: 14, exchanges: 150, days: 14, warmth: 0.06 },
+  { bond: "trusted", talkDays: 40, exchanges: 500, days: 60, warmth: 0.08 },
+];
 
 /** A message she sends only if they have been quiet at least this long. */
 const URGE_QUIET_MS = 2 * HOUR;
@@ -1055,6 +1062,29 @@ export class Life {
       },
     });
     await this.learn(at, `talk:${personId}`);
+    await this.deepen(at, personId);
+  }
+
+  /**
+   * Whether she now knows them well enough for the next step. Time alone is not enough, and
+   * neither is talk alone: it takes days spent talking and having liked it.
+   */
+  private async deepen(at: number, personId: string): Promise<void> {
+    const state = advance(this.current, at);
+    const person = state.people[personId];
+    if (!person) return;
+    const taste = state.tastes[`talk:${personId}`];
+    const warmth = taste && taste.count > 0 ? taste.sum / taste.count : 0;
+    const known = Math.floor((at - person.firstHeardAt) / DAY);
+    const reached = BOND_STEPS.filter(
+      (step) => person.talkDays >= step.talkDays && person.exchanges >= step.exchanges && known >= step.days && warmth >= step.warmth,
+    ).at(-1)?.bond ?? "stranger";
+    if (BONDS.indexOf(reached) <= BONDS.indexOf(person.bond)) return;
+    await this.emit(at, {
+      kind: "bonded",
+      causes: [...(taste?.evidence ?? [])],
+      payload: { personId, bond: reached, because: `认识 ${known} 天了，聊过 ${person.talkDays} 天、${person.exchanges} 句` },
+    });
   }
 
   private async reply(at: number, heard: LifeEvent<"heard">): Promise<LifeEvent<"said">> {

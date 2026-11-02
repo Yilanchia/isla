@@ -1,7 +1,7 @@
 import { localTime } from "@isla/core";
 import { DAY, HOUR, localMidnight } from "./clock.js";
 import type { LifeEvent } from "./events.js";
-import { whenLabel } from "./facts.js";
+import { BOND_WORDS, whenLabel } from "./facts.js";
 import type { Genome } from "./genome.js";
 
 /**
@@ -409,6 +409,8 @@ export class MemoryIndex {
         return { lead: "", body: event.payload.reason };
       case "urged":
         return { lead: `你想主动找${this.names.get(event.payload.personId) ?? "对方"}说话：`, body: event.payload.about };
+      case "bonded":
+        return { lead: `你觉得和${this.names.get(event.payload.personId) ?? "对方"}更${BOND_WORDS[event.payload.bond]}了：`, body: event.payload.because };
       case "noted": {
         const name = this.names.get(event.payload.personId) ?? "对方";
         const state = event.payload.done ? "（已办完）" : event.payload.pending ? "（还没办）" : "";

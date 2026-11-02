@@ -2,7 +2,7 @@ import { localTime } from "@isla/core";
 import { clockLabel, DAY, localDayRange } from "./clock.js";
 import type { LifeEvent } from "./events.js";
 import type { MemoryIndex } from "./recall.js";
-import type { LifeState } from "./state.js";
+import type { Bond, LifeState } from "./state.js";
 
 /**
  * One thing she can truthfully say about herself, with where it comes from.
@@ -84,6 +84,8 @@ export function describeEvent(event: LifeEvent, now: number, timezone: string): 
       return `${when} 你回答：${quote(event.payload.text, 60)}`;
     case "urged":
       return `${when} 你想主动找人说话：${event.payload.about}`;
+    case "bonded":
+      return `${when} 你觉得和对方更${BOND_WORDS[event.payload.bond]}了：${event.payload.because}`;
     case "noted":
       return `${when} 你记下（${event.payload.topic}）：${quote(event.payload.text, 60)}${event.payload.done ? "，已经办完" : ""}`;
     case "lapsed":
@@ -91,6 +93,29 @@ export function describeEvent(event: LifeEvent, now: number, timezone: string): 
     default:
       return undefined;
   }
+}
+
+export const BOND_WORDS: Record<Bond, string> = { stranger: "初识", familiar: "熟悉", close: "亲近", trusted: "信赖" };
+
+const PARTS: Array<[string, number[]]> = [
+  ["早上", [6, 7, 8]],
+  ["上午", [9, 10, 11]],
+  ["中午", [12, 13]],
+  ["下午", [14, 15, 16, 17]],
+  ["晚上", [18, 19, 20, 21, 22]],
+  ["深夜", [23, 0, 1, 2, 3, 4, 5]],
+];
+
+/** When they usually come, once there is enough to say: the parts of the day with most of it. */
+function usualHours(hours: readonly number[] | undefined): string | undefined {
+  if (!hours) return undefined;
+  const total = hours.reduce((sum, count) => sum + count, 0);
+  if (total < 20) return undefined;
+  const parts = PARTS.map(([label, slots]) => ({ label, share: slots.reduce((sum, hour) => sum + (hours[hour] ?? 0), 0) / total }))
+    .filter((part) => part.share >= 0.25)
+    .sort((left, right) => right.share - left.share)
+    .slice(0, 2);
+  return parts.length > 0 ? `在${parts.map((part) => part.label).join("和")}` : undefined;
 }
 
 function findLast<T>(items: readonly T[], test: (item: T) => boolean, within = Infinity): T | undefined {
@@ -164,6 +189,18 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
         text: `${label}：还有 ${items.length} 样没看，最新的是${titles.join("、")}`,
       });
     }
+  }
+  // How well she knows the person in front of her, and what she has noticed about their habits.
+  const person = options.personId ? state.people[options.personId] : undefined;
+  if (person && !options.focusDay) {
+    const name = person.name ?? "对方";
+    const known = Math.floor((now - person.firstHeardAt) / DAY);
+    facts.push({
+      id: `state:bond:${person.personId}`,
+      text: `你和${name}：${BOND_WORDS[person.bond]}（认识 ${known} 天，聊过 ${person.talkDays} 天、${person.exchanges} 句）`,
+    });
+    const usual = usualHours(person.hours);
+    if (usual) facts.push({ id: `state:habit:${person.personId}`, text: `${name}通常${usual}来找你` });
   }
   // What she keeps about the person in front of her: what is still to be done first, then facts.
   if (options.personId && !options.focusDay) {

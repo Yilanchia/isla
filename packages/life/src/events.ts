@@ -147,6 +147,16 @@ export interface LifeEventPayloads {
     external?: boolean;
   } & Grounding;
   /**
+   * She has come to know someone better: 初识 → 熟悉 → 亲近 → 信赖. Computed from how long and how
+   * often they have talked and how she has felt about it; it only ever deepens.
+   */
+  bonded: {
+    personId: string;
+    bond: "stranger" | "familiar" | "close" | "trusted";
+    /** In her words: "认识 12 天了，聊过 6 天". */
+    because: string;
+  };
+  /**
    * She wants to say something to someone who is not talking to her right now. The kernel decides
    * that she wants to and why, from what has happened; the host decides how it reaches them, and
    * records what was said with `speak()` against this event.

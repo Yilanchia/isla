@@ -89,7 +89,18 @@ export interface Acquaintance {
   firstHeardAt: number;
   lastHeardAt: number;
   exchanges: number;
+  /** Local days on which they talked to her, counted, and the last one. */
+  talkDays: number;
+  lastTalkDay: string;
+  /** How often they come at each local hour, 0–23: their habits, as she has lived them. */
+  hours: number[];
+  /** How well she knows them; only ever deepens. */
+  bond: Bond;
 }
+
+/** 初识 → 熟悉 → 亲近 → 信赖. */
+export const BONDS = ["stranger", "familiar", "close", "trusted"] as const;
+export type Bond = (typeof BONDS)[number];
 
 /**
  * Everything she is right now, computed from the log and nothing else. It is a cache: delete it
@@ -297,6 +308,10 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
       const known = state.people[payload.personId];
       const name = payload.name ?? known?.name;
       const drives = { ...next.drives, connection: clamp(next.drives.connection * 0.6) };
+      const day = dayKey(event.at, timezone);
+      const hours = [...(known?.hours ?? new Array<number>(24).fill(0))];
+      const hour = localTime(event.at, timezone).hour;
+      hours[hour] = (hours[hour] ?? 0) + 1;
       return {
         ...next,
         drives,
@@ -308,6 +323,10 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
             firstHeardAt: known?.firstHeardAt ?? event.at,
             lastHeardAt: event.at,
             exchanges: (known?.exchanges ?? 0) + 1,
+            talkDays: (known?.talkDays ?? 0) + (known?.lastTalkDay === day ? 0 : 1),
+            lastTalkDay: day,
+            hours,
+            bond: known?.bond ?? "stranger",
           },
         },
         pending: state.asleep
@@ -343,6 +362,11 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
         pending: payload.done ? false : payload.pending === true,
       };
       return { ...next, notes: { ...state.notes, [payload.personId]: notes } };
+    }
+    case "bonded": {
+      const known = state.people[event.payload.personId];
+      if (!known) return next;
+      return { ...next, people: { ...state.people, [known.personId]: { ...known, bond: event.payload.bond } } };
     }
     case "urged":
       // Wanting to talk is not talking: nothing changes until someone answers.

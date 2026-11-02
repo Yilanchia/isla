@@ -33,6 +33,9 @@ The life kernel. Isla stops describing a character in a prompt and starts giving
 - `@isla/life`: `Life.perceive()`: things outside her room enter as `perceived` events. Asleep
   she notices nothing; the host's rating reaches her only a little; the same thing again within
   a day is less new; with a `detail`, repeated perceptions become a taste.
+- `@isla/life`: getting to know someone. Each person has talk days, an hour-of-day habit and a
+  bond (初识 → 熟悉 → 亲近 → 信赖) that deepens with days spent talking and liking it, never with
+  one long day, and never goes back; each step is a `bonded` event she can remember.
 - `@isla/life`: `createRoom({ sky: "host" })`: her window looks onto a real sky the host reports
   with `perceive({ source: "weather" })`; nothing is made up, and the same sky twice is not news.
   More kinds of weather (雨, 大雨, 雷雨, 雪, 雾).

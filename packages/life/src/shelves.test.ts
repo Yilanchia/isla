@@ -111,6 +111,43 @@ describe("her shelves", () => {
   });
 });
 
+describe("getting to know someone", () => {
+  async function talkFor(days: number, perDay: number, hour = 20) {
+    const { life, at } = await open();
+    for (let day = 0; day < days; day++) {
+      for (let n = 0; n < perDay; n++) {
+        await at(BIRTH + day * DAY + (hour - 5.5) * HOUR + n * 60_000);
+        await life.listen({ personId: "owner", name: "主人", text: `第 ${day} 天第 ${n} 句` });
+      }
+    }
+    return life;
+  }
+  const bonds = (life: Life) =>
+    life.events().filter((event): event is LifeEvent<"bonded"> => event.kind === "bonded").map((event) => event.payload.bond);
+
+  it("starts as strangers, and talk on many days, not many words in one, brings them closer", async () => {
+    const crammed = await talkFor(1, 60);
+    assert.equal(crammed.state.people.owner?.bond, "stranger", "one long day is not knowing someone");
+    const spread = await talkFor(16, 12);
+    assert.deepEqual(bonds(spread), ["familiar", "close"]);
+    assert.equal(spread.state.people.owner?.talkDays, 16);
+  });
+
+  it("only ever deepens, and knows when they usually come", async () => {
+    const life = await talkFor(5, 8, 21);
+    assert.equal(life.state.people.owner?.bond, "familiar");
+    const facts = life.facts({ personId: "owner" }).map((fact) => fact.text);
+    assert.ok(facts.some((text) => /^你和主人：熟悉（认识 4 天，聊过 5 天、40 句）$/u.test(text)), facts.join("\n"));
+    assert.ok(facts.some((text) => text === "主人通常在晚上来找你"));
+    // A long silence does not undo what they had.
+    const { at } = { at: async (time: number) => life.advanceTo(time) };
+    await at(BIRTH + 60 * DAY);
+    assert.equal(life.state.people.owner?.bond, "familiar");
+    // Long gone from mind on its own, the day they became familiar is still found when she looks.
+    assert.ok((await life.remember({ text: "熟悉 认识" })).some((item) => item.kind === "bonded"));
+  });
+});
+
 describe("a real sky", () => {
   async function hostSky() {
     let now = BIRTH;
