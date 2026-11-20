@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ACTIVITIES } from "./activities.js";
-import { DAY } from "./clock.js";
+import { DAY, HOUR } from "./clock.js";
 import { MemoryArchive } from "./events.js";
 import { ISLA_GENOME } from "./genome.js";
 import { Life } from "./life.js";
@@ -52,5 +52,45 @@ describe("goals", () => {
     assert.deepEqual(rebuilt.goals, life.state.goals);
     const active = Object.values(life.state.goals).filter((goal) => goal.status === "active");
     assert.equal(active.length, 0);
+  });
+
+  it("keeps a promise to someone", async () => {
+    const now = { value: Date.parse("2026-11-01T05:30:00+08:00") };
+    const life = await Life.open({
+      genome: ISLA_GENOME,
+      world: createRoom({ seed: "promise", books: [] }),
+      archive: new MemoryArchive(),
+      clock: () => now.value,
+    });
+    await life.advanceTo(now.value + HOUR);
+    const heard = await life.hear({ personId: "p1", name: "阿岚", text: "帮我把护照找出来" });
+    await life.note({
+      personId: "p1",
+      topic: "护照",
+      text: "帮她找护照",
+      source: heard.heard.id,
+      pending: true,
+    });
+
+    // By bedtime she takes it on.
+    now.value += 20 * HOUR;
+    await life.advanceTo(now.value);
+    const aimed = life.events().filter((event) => event.kind === "aimed" && event.payload.kind === "do-for");
+    assert.ok(aimed.length > 0, "a promise became a goal");
+
+    // The promise is closed; so is the goal.
+    await life.note({
+      personId: "p1",
+      topic: "护照",
+      text: "护照找到了",
+      source: heard.heard.id,
+      done: true,
+    });
+    const achieved = life.events().filter((event) => event.kind === "achieved");
+    assert.ok(achieved.length > 0, "closing the promise finished the goal");
+
+    const rebuilt = replay(life.events());
+    assert.ok(rebuilt);
+    assert.deepEqual(rebuilt.goals, life.state.goals);
   });
 });

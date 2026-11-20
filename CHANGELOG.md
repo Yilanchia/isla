@@ -11,7 +11,9 @@ Goals.
 - `@isla/life`: a goal pulls a little toward the activity that moves it, reading advances it,
   finishing the book completes it, and a week without progress drops it (and is felt).
 - `@isla/life`: active goals are standing facts; vitals count aimed / done / dropped per week.
-- `goals.test.ts`: aim, progress, finish, replay.
+- `@isla/life`: `do-for` goals come from open promises (`note({ pending: true })`); closing the
+  promise with `note({ done: true })` finishes the goal and is felt.
+- `goals.test.ts`: aim, progress, finish, a kept promise, replay.
 
 ## 0.5.0 — unreleased
 

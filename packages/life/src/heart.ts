@@ -300,6 +300,41 @@ async function advanceGoal(life: LifeInternals, at: number, endedId: string, boo
   await learn(life, at, "goal:finish");
 }
 
+/** A promise was closed: the goal it belongs to is done. */
+export async function advanceDoFor(
+  life: LifeInternals,
+  at: number,
+  noted: LifeEvent<"noted">,
+): Promise<void> {
+  if (!noted.payload.done) return;
+  const about = `person:${noted.payload.personId}:${noted.payload.topic}`;
+  const goal = Object.values(advance(life.current, at).goals).find(
+    (item) => item.status === "active" && item.about === about,
+  );
+  if (!goal) return;
+  const progressed = await life.emit(at, {
+    kind: "progressed",
+    causes: [noted.id],
+    payload: { goalId: goal.goalId, by: noted.id, amount: 1 },
+  });
+  await life.emit(at, {
+    kind: "achieved",
+    causes: [progressed.id],
+    payload: { goalId: goal.goalId },
+  });
+  await life.emit(at, {
+    kind: "felt",
+    causes: [progressed.id],
+    payload: {
+      valence: 0.1,
+      arousal: 0.04,
+      reason: `把答应的事办完了：${goal.statement}`,
+      about: "goal:do-for",
+    },
+  });
+  await learn(life, at, "goal:do-for");
+}
+
 /**
  * Before sleep she may take on something for the next days. The kernel offers what is actually
  * open; the mind picks one and says why; the kernel accepts only a choice that rests on a fact
@@ -310,6 +345,22 @@ async function deliberate(life: LifeInternals, at: number): Promise<void> {
   const active = Object.values(state.goals).filter((goal) => goal.status === "active");
   if (active.length >= 3) return;
   const candidates: GoalCandidate[] = [];
+  // A promise comes first: something she was told and has not done yet.
+  for (const [personId, topics] of Object.entries(state.notes)) {
+    for (const note of Object.values(topics)) {
+      if (!note.pending) continue;
+      const about = `person:${personId}:${note.topic}`;
+      if (active.some((goal) => goal.about === about)) continue;
+      const name = state.people[personId]?.name ?? "对方";
+      candidates.push({
+        about,
+        kind: "do-for",
+        statement: `把答应${name}的事办完：${note.text}`,
+        need: 0.6,
+        grounds: [note.eventId],
+      });
+    }
+  }
   for (const book of life.world.books) {
     const index = state.reading[book.id] ?? 0;
     if (index >= book.passages.length) continue;
