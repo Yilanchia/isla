@@ -79,16 +79,22 @@ export async function reply(life: LifeInternals, at: number, heard: LifeEvent<"h
 
 export async function writeNote(life: LifeInternals, at: number, endedId: string): Promise<LifeEvent<"wrote">> {
   const state = advance(life.current, at);
-  const facts = gatherFacts(state, life.log, { now: at, lookbackMs: 8 * 60 * 60 * 1000, limit: 24 });
+  // A note is about what she just read, and a new article comes before a book she has reread.
+  const facts = gatherFacts(state, life.log, { now: at, lookbackMs: 36 * 60 * 60 * 1000, limit: 80 });
   const written = await compose(life, at, { task: "note", facts });
-  // What she was reading when she sat down to write; a `make` goal counts notes about it.
-  const reading = findLast(
-    life.log,
-    (event) =>
-      event.kind === "activity.started" && Boolean(event.payload.material) && event.payload.material?.kind !== "view",
-    60,
+  const recent = life.log.slice(-100).reverse();
+  const item = recent.find(
+    (event) => event.kind === "activity.started" && event.payload.material?.kind === "item",
   );
-  const material = reading?.kind === "activity.started" ? reading.payload.material : undefined;
+  const passage = recent.find(
+    (event) => event.kind === "activity.started" && event.payload.material?.kind === "passage",
+  );
+  const material =
+    item?.kind === "activity.started"
+      ? item.payload.material
+      : passage?.kind === "activity.started"
+        ? passage.payload.material
+        : undefined;
   const about =
     material?.kind === "passage"
       ? `read:${material.bookId}`

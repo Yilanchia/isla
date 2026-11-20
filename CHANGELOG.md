@@ -8,6 +8,8 @@ Habituation.
   time (`1 / (1 + 0.5 × (seen − 1))`).
 - `@isla/life`: when everything has been read and she still wants something new, she feels it
   and emits `wanted`; a host can answer with `stock()`. `urged` gains `why: "seek"`.
+- `@isla/life`: a note is about the newest article rather than the book she rereads, and quotes
+  what the article actually said, so notes stop collapsing into the same line.
 - `habituation.test.ts`: the tenth read is not the first; she asks for something new.
 
 ## 0.6.0 — unreleased

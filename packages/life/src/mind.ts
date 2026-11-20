@@ -259,12 +259,20 @@ export class InnerMind implements Mind {
   /** A line in her notebook about the last thing she read or saw. */
   private note(request: MindRequest): MindResponse {
     const facts = request.facts.filter((fact) => fact.event);
-    // The most recent reading, whether she just did it or it came back to her.
+    // The most recent reading, whether she just did it or it came back to her. A new article
+    // comes before a book she has reread, so a note is about what is actually new.
     let reading: { fact: Fact; event: LifeEvent<"activity.started"> } | undefined;
     for (const fact of facts) {
       const started = eventOf(fact, "activity.started");
       const kind = started?.payload.material?.kind;
-      if (started && (kind === "passage" || kind === "item") && (!reading || started.seq > reading.event.seq)) {
+      if (!started || (kind !== "passage" && kind !== "item")) continue;
+      if (!reading) {
+        reading = { fact, event: started };
+        continue;
+      }
+      const currentKind = reading.event.payload.material?.kind;
+      const preferred = kind === "item" && currentKind !== "item";
+      if (preferred || (kind === currentKind && started.seq > reading.event.seq)) {
         reading = { fact, event: started };
       }
     }
@@ -274,15 +282,25 @@ export class InnerMind implements Mind {
       return { text: `「${material.text}」这句，我又想了一遍。`, grounds: [reading.fact.id] };
     }
     if (reading && material?.kind === "item") {
-      // An article or a commit she notes for what it was, and how it struck her if she said so.
+      // An article or a commit she notes for what it was: what it struck her as, and what it
+      // actually said, so two articles do not collapse into the same line.
+      const excerpt = material.text.trim().slice(0, 40);
       const shelf = material.shelf;
       const after = reading.event.seq;
       const felt = facts
         .map((fact) => ({ fact, event: eventOf(fact, "felt") }))
         .filter(({ event }) => event && event.seq > after && (event.payload.about === shelf || event.payload.about?.startsWith(`${shelf}:`)))
         .sort((left, right) => (left.event?.seq ?? 0) - (right.event?.seq ?? 0))[0];
-      if (felt?.event) return { text: `记一下：${felt.event.payload.reason}。`, grounds: [felt.fact.id] };
-      return { text: `记一下：${reading.event.payload.label}「${material.title}」。`, grounds: [reading.fact.id] };
+      if (felt?.event) {
+        return {
+          text: `记一下：${felt.event.payload.reason}${excerpt ? `——${excerpt}` : ""}。`,
+          grounds: [felt.fact.id],
+        };
+      }
+      return {
+        text: `记一下：${reading.event.payload.label}「${material.title}」${excerpt ? `——${excerpt}` : ""}。`,
+        grounds: [reading.fact.id],
+      };
     }
     const seen = [...facts].reverse().find((fact) => eventOf(fact, "activity.started")?.payload.material?.kind === "view");
     const view = seen && eventOf(seen, "activity.started");
