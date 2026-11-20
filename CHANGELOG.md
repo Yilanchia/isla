@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 — unreleased
+
+Measuring whether she is still living, and facts a mind can read without parsing.
+
+- `@isla/life`: `measureLife()` / `formatVitals()` read a life's log week by week: new diary
+  sentences, new notes, belief changes, first encounters, and nights of unmet need spent in a
+  good mood.
+- `evals`: "a month" milestone, alone and with a daily article. Targets not yet met are `todo`.
+  Baseline: from day 3 she repeats herself; new articles reach her but not her diary.
+- `@isla/life`: facts carry `kind`, `event`, `daysAgo` and `words`; `InnerMind` reads those
+  instead of regex-parsing sentences. Fixes a diary that counted her own replies about her
+  notebook as notes (claimed 7, wrote 4). The best moment of a day is now the warmest feeling,
+  and quoted passages are no longer cut short.
+- `examples/life`: `dist/vitals.js <life.jsonl>` measures a real archive.
+
 ## 0.4.0 — unreleased
 
 The life kernel. Isla stops describing a character in a prompt and starts giving one a life.

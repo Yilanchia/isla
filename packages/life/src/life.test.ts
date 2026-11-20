@@ -177,6 +177,26 @@ describe("the log is the life", () => {
   });
 });
 describe("talking to her", () => {
+  it("does not count her own words about her notebook as notes she wrote", async () => {
+    // Once her diary read facts as sentences, "在笔记本上写了 2 次" in her own reply was counted
+    // as another note, and the diary claimed seven notes on a day with four. Every id it cited
+    // was real; the claim was not.
+    const setup = newLife();
+    const life = await setup.open();
+    for (const hour of [10, 13, 16, 19]) {
+      setup.set(BIRTH + hour * HOUR);
+      await life.hear({ personId: "p1", name: "小林", text: "你今天做了什么？" });
+    }
+    await life.advanceTo(BIRTH + 24 * HOUR);
+    const day = life.day(DAY1);
+    assert.ok(day.some((event) => event.kind === "said" && event.payload.text.includes("在笔记本上写了")));
+    const notes = day.filter((event) => event.kind === "wrote").length;
+    const diary = day.find((event) => event.kind === "reflected");
+    assert.ok(diary?.kind === "reflected");
+    const claimed = /在笔记本上写了 (\d+) 次/u.exec(diary.payload.diary)?.[1];
+    assert.equal(Number(claimed ?? (diary.payload.diary.includes("写了点东西") ? 1 : 0)), notes);
+  });
+
   it("answers from what really happened, and the answer cites it", async () => {
     const setup = newLife();
     const life = await setup.open();
