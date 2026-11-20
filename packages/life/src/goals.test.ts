@@ -5,6 +5,7 @@ import { DAY, HOUR } from "./clock.js";
 import { MemoryArchive } from "./events.js";
 import { ISLA_GENOME } from "./genome.js";
 import { Life } from "./life.js";
+import { InnerMind } from "./mind.js";
 import { replay } from "./state.js";
 import { createRoom } from "./world.js";
 
@@ -92,5 +93,20 @@ describe("goals", () => {
     const rebuilt = replay(life.events());
     assert.ok(rebuilt);
     assert.deepEqual(rebuilt.goals, life.state.goals);
+  });
+
+  it("writes a goal into her diary", async () => {
+    const mind = new InnerMind();
+    const response = await mind.compose({
+      task: "diary",
+      name: "艾拉",
+      voice: "",
+      day: "2026-11-02",
+      facts: [
+        { id: "e49", kind: "goal", words: "read:long", text: "你正在做：读完《长书》" },
+        { id: "state:mood", kind: "mood", words: "心情不错", text: "你现在心情不错" },
+      ],
+    });
+    assert.match(response.text, /读完《长书》/u);
   });
 });

@@ -13,7 +13,8 @@ Goals.
 - `@isla/life`: active goals are standing facts; vitals count aimed / done / dropped per week.
 - `@isla/life`: `do-for` goals come from open promises (`note({ pending: true })`); closing the
   promise with `note({ done: true })` finishes the goal and is felt.
-- `goals.test.ts`: aim, progress, finish, a kept promise, replay.
+- `@isla/life`: her diary mentions a goal she is still working on, and notes when one is done.
+- `goals.test.ts`: aim, progress, finish, a kept promise, the diary line, replay.
 
 ## 0.5.0 — unreleased
 

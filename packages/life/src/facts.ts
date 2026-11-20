@@ -256,18 +256,16 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
     }
   }
   // A goal she is still working on is part of how she is right now.
-  if (!options.focusDay) {
-    for (const goal of Object.values(state.goals)) {
-      if (goal.status !== "active") continue;
-      const event = eventById(events, goal.aimId);
-      facts.push({
-        id: goal.aimId,
-        kind: "goal",
-        words: goal.about,
-        text: `你正在做：${goal.statement}`,
-        ...(event ? { event } : {}),
-      });
-    }
+  for (const goal of Object.values(state.goals)) {
+    if (goal.status !== "active") continue;
+    const event = eventById(events, goal.aimId);
+    facts.push({
+      id: goal.aimId,
+      kind: "goal",
+      words: goal.about,
+      text: `你正在做：${goal.statement}`,
+      ...(event ? { event } : {}),
+    });
   }
   // The log is in time order, so every lookup below walks back from the end and stops early.
   const { wakeHour, sleepHour } = state.genome.chronotype;
