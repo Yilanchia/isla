@@ -99,12 +99,17 @@ const read: ActivityKind = {
     // Rereading a passage she already knows is pleasant, just less so.
     const book = material?.kind === "passage" ? material : undefined;
     const reread = book?.reread === true;
+    const key = material?.kind === "passage" ? `passage:${material.bookId}:${material.index}` : undefined;
+    const seen = key ? state.exposures[key] ?? 1 : 1;
+    // The same stretch again is less new each time; the tenth read is not the first.
+    const habituation = 1 / (1 + 0.5 * Math.max(0, seen - 1));
     const valence =
-      0.04 +
-      affinity(state, `read:${bookId}`) * 0.07 +
-      inclination(state, "read") * 0.3 +
-      (state.energy < 0.3 ? -0.05 : 0) +
-      noise(random, 0.08);
+      (0.04 +
+        affinity(state, `read:${bookId}`) * 0.07 +
+        inclination(state, "read") * 0.3 +
+        (state.energy < 0.3 ? -0.05 : 0) +
+        noise(random, 0.08)) *
+      habituation;
     const title = material?.kind === "passage" ? `《${material.title}》` : "书";
     const reason =
       valence > 0.07
@@ -259,7 +264,12 @@ export function shelfActivity(options: ShelfActivityOptions): ActivityKind {
       const tags = material?.kind === "item" ? material.tags : [];
       const tag = tags[0];
       const inborn = tags.length === 0 ? 0 : tags.reduce((sum, item) => sum + affinity(state, `${id}:${item}`), 0) / tags.length;
-      const valence = 0.03 + inborn * 0.07 + inclination(state, id) * 0.3 + (state.energy < 0.3 ? -0.04 : 0) + noise(random, 0.08);
+      const key = material?.kind === "item" ? `item:${material.shelf}:${material.item}` : undefined;
+      const seen = key ? state.exposures[key] ?? 1 : 1;
+      const habituation = 1 / (1 + 0.5 * Math.max(0, seen - 1));
+      const valence =
+        (0.03 + inborn * 0.07 + inclination(state, id) * 0.3 + (state.energy < 0.3 ? -0.04 : 0) + noise(random, 0.08)) *
+        habituation;
       const title = material?.kind === "item" ? `「${material.title}」` : "";
       const reason =
         valence > 0.07 ? `${verb}${title}，挺有意思` : valence < -0.01 ? `${verb}${title}，没什么意思` : `${verb}${title}`;

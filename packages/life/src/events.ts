@@ -183,6 +183,8 @@ export interface LifeEventPayloads {
   progressed: { goalId: string; by: string; amount: number };
   achieved: { goalId: string };
   dropped: { goalId: string; reason: string };
+  /** She has run out of anything new to read or look at, and wants some. The host may stock it. */
+  wanted: { what: "新的书" | "新的东西"; why: string };
   /**
    * She wants to say something to someone who is not talking to her right now. The kernel decides
    * that she wants to and why, from what has happened; the host decides how it reaches them, and
@@ -191,7 +193,7 @@ export interface LifeEventPayloads {
   urged: {
     personId: string;
     /** `missed`: she has not heard from them in a long while. `share`: something she came across. `pending`: something still to do for them. */
-    why: "missed" | "share" | "pending";
+    why: "missed" | "share" | "pending" | "seek";
     /** What it is about, in her words. */
     about: string;
   };
