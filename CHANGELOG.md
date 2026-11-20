@@ -14,7 +14,10 @@ Goals.
 - `@isla/life`: `do-for` goals come from open promises (`note({ pending: true })`); closing the
   promise with `note({ done: true })` finishes the goal and is felt.
 - `@isla/life`: her diary mentions a goal she is still working on, and notes when one is done.
-- `goals.test.ts`: aim, progress, finish, a kept promise, the diary line, replay.
+- `@isla/life`: `make` goals. A finished book can become something to write about; three notes
+  about it turn into a `made` piece, and the goal is done. `wrote.about` records what a note
+  was about.
+- `goals.test.ts`: aim, progress, finish, a kept promise, a piece, the diary line, replay.
 
 ## 0.5.0 — unreleased
 

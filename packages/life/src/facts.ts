@@ -135,6 +135,8 @@ export function describeEvent(event: LifeEvent, now: number, timezone: string): 
       return `${when} 朝那件事又走了一步`;
     case "achieved":
       return `${when} 把一件事做完了`;
+    case "made":
+      return `${when} 写完了一篇东西：${event.payload.title}`;
     case "dropped":
       return `${when} 放下了一件事：${event.payload.reason}`;
     case "noted":

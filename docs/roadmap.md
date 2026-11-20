@@ -78,8 +78,8 @@ cd evals && npx tsc -p tsconfig.json && node --test dist/*.test.js
 
 > 2026-11-20：`finish` 和 `do-for` 的闭环已落地——`aimed` / `progressed` / `achieved` /
 > `dropped` 事件、`deliberate` 心智任务、阅读拉力、完成与放弃的感受、vitals 三列、
-> `goals.test.ts`（含一个守住的承诺和日记里的目标）。
-> 待做：`make` / `learn` 两类目标。
+> `goals.test.ts`（含一个守住的承诺、一篇写出来的东西和日记里的目标）。
+> 待做：`learn` 这一类目标。
 
 让她有跨好几天的、自己的事。日记和自我认识会因此有情节。
 

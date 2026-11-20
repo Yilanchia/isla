@@ -296,6 +296,7 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
       return { ...next, mood, tastes, tags };
     }
     case "wrote":
+    case "made":
     case "reflected":
     case "said": {
       const settled = applySaid(next, event);

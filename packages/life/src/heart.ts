@@ -252,7 +252,8 @@ async function finishActivity(life: LifeInternals, at: number): Promise<void> {
     if (feeling.about.includes(":")) await learn(life, at, feeling.about.slice(0, feeling.about.indexOf(":")));
   }
   if (activity.activity === "write") {
-    await writeNote(life, at, ended.id);
+    const wrote = await writeNote(life, at, ended.id);
+    await advanceMake(life, at, wrote);
   }
   if (activity.activity === "read" && activity.material?.kind === "passage") {
     await advanceGoal(life, at, ended.id, activity.material.bookId);
@@ -271,7 +272,7 @@ function goalPull(state: LifeState): number {
 /** A passage was read: move the matching goal forward, and finish it when the book is done. */
 async function advanceGoal(life: LifeInternals, at: number, endedId: string, bookId: string): Promise<void> {
   const goal = Object.values(advance(life.current, at).goals).find(
-    (item) => item.status === "active" && item.about === `read:${bookId}`,
+    (item) => item.status === "active" && item.kind === "finish" && item.about === `read:${bookId}`,
   );
   if (!goal) return;
   const progressed = await life.emit(at, {
@@ -298,6 +299,50 @@ async function advanceGoal(life: LifeInternals, at: number, endedId: string, boo
     },
   });
   await learn(life, at, "goal:finish");
+}
+
+/** A note about the same thing: move the make goal forward, and finish the piece at three. */
+export async function advanceMake(
+  life: LifeInternals,
+  at: number,
+  wrote: LifeEvent<"wrote">,
+): Promise<void> {
+  const about = wrote.payload.about;
+  if (!about) return;
+  const goal = Object.values(advance(life.current, at).goals).find(
+    (item) => item.status === "active" && item.kind === "make" && item.about === about,
+  );
+  if (!goal) return;
+  const progressed = await life.emit(at, {
+    kind: "progressed",
+    causes: [wrote.id],
+    payload: { goalId: goal.goalId, by: wrote.id, amount: 1 },
+  });
+  if (goal.progress + 1 < 3) return;
+  const notes = life.log
+    .filter((event): event is LifeEvent<"wrote"> => event.kind === "wrote" && event.payload.about === about)
+    .slice(-3);
+  if (notes.length < 3) return;
+  await life.emit(at, {
+    kind: "made",
+    causes: [progressed.id, ...notes.map((event) => event.id)],
+    payload: {
+      title: goal.statement,
+      text: notes.map((event) => event.payload.text).join("\n"),
+      about,
+      mind: "inner",
+      grounds: notes.map((event) => event.id),
+      rejected: [],
+      facts: {},
+    },
+  });
+  await life.emit(at, { kind: "achieved", causes: [progressed.id], payload: { goalId: goal.goalId } });
+  await life.emit(at, {
+    kind: "felt",
+    causes: [progressed.id],
+    payload: { valence: 0.12, arousal: 0.06, reason: "把想写的东西写完了", about: "goal:make" },
+  });
+  await learn(life, at, "goal:make");
 }
 
 /** A promise was closed: the goal it belongs to is done. */
@@ -377,6 +422,28 @@ async function deliberate(life: LifeInternals, at: number): Promise<void> {
       about: `read:${book.id}`,
       kind: "finish",
       statement: `读完《${book.title}》`,
+      need: 0.5,
+      grounds: [started.id],
+    });
+  }
+  // A book she has finished is something she may want to write about, once.
+  for (const book of life.world.books) {
+    const index = state.reading[book.id] ?? 0;
+    if (index < book.passages.length) continue;
+    const about = `read:${book.id}`;
+    if (Object.values(state.goals).some((goal) => goal.kind === "make" && goal.about === about)) continue;
+    const started = findLast(
+      life.log,
+      (event) =>
+        event.kind === "activity.started" &&
+        event.payload.material?.kind === "passage" &&
+        event.payload.material.bookId === book.id,
+    );
+    if (!started) continue;
+    candidates.push({
+      about,
+      kind: "make",
+      statement: `写一篇关于《${book.title}》的东西`,
       need: 0.5,
       grounds: [started.id],
     });

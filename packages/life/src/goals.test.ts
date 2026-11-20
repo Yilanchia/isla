@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { ACTIVITIES } from "./activities.js";
 import { DAY, HOUR } from "./clock.js";
 import { MemoryArchive } from "./events.js";
-import { ISLA_GENOME } from "./genome.js";
+import { createGenome, ISLA_GENOME } from "./genome.js";
 import { Life } from "./life.js";
 import { InnerMind } from "./mind.js";
 import { replay } from "./state.js";
@@ -90,6 +90,33 @@ describe("goals", () => {
     const achieved = life.events().filter((event) => event.kind === "achieved");
     assert.ok(achieved.length > 0, "closing the promise finished the goal");
 
+    const rebuilt = replay(life.events());
+    assert.ok(rebuilt);
+    assert.deepEqual(rebuilt.goals, life.state.goals);
+  });
+
+  it("writes a piece about a book she finished", async () => {
+    const now = { value: Date.parse("2026-11-01T05:30:00+08:00") };
+    const shortBook = {
+      id: "short",
+      title: "短书",
+      passages: Array.from({ length: 20 }, (_, index) => `第 ${index + 1} 段`),
+    };
+    const genome = createGenome({ ...ISLA_GENOME, chronotype: { wakeHour: 9, sleepHour: 19 } });
+    const life = await Life.open({
+      genome,
+      world: createRoom({ seed: "make", books: [shortBook] }),
+      archive: new MemoryArchive(),
+      clock: () => now.value,
+      activities: ACTIVITIES.filter((kind) => kind.id === "read" || kind.id === "write"),
+    });
+    for (let day = 0; day < 8; day++) {
+      now.value += DAY;
+      await life.advanceTo(now.value);
+    }
+    const made = life.events().filter((event) => event.kind === "made");
+    assert.equal(made.length, 1, "she wrote one piece");
+    assert.match(made[0]?.payload.title ?? "", /写一篇关于/u);
     const rebuilt = replay(life.events());
     assert.ok(rebuilt);
     assert.deepEqual(rebuilt.goals, life.state.goals);
