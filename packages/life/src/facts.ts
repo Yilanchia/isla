@@ -162,7 +162,9 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
   facts.push({ id: "state:energy", text: `你现在${energyWords(state.energy)}` });
   facts.push({ id: "state:mood", text: `你现在${moodWords(state.mood.valence)}` });
   if (state.activity) {
-    facts.push({ id: state.activity.startedId, text: `你此刻正在${state.activity.label}` });
+    // Activity labels already read "在窗边看外面"; do not stack another 正在在.
+    const doing = state.activity.label.replace(/^在/u, "");
+    facts.push({ id: state.activity.startedId, text: `你此刻正在${doing}` });
   }
   if (state.drives.connection > 0.7) facts.push({ id: "state:connection", text: "你很想有人陪你说说话" });
   if (state.drives.curiosity > 0.7) facts.push({ id: "state:curiosity", text: "你很想看点新东西" });
