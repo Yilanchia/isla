@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0 — unreleased
+
+Goals.
+
+- `@isla/life`: `aimed` / `progressed` / `achieved` / `dropped` events; goals are folded from the
+  log like everything else.
+- `@isla/life`: the `deliberate` mind task. `InnerMind` picks a candidate that rests on a fact;
+  `ModelMind` can choose with a model later.
+- `@isla/life`: a goal pulls a little toward the activity that moves it, reading advances it,
+  finishing the book completes it, and a week without progress drops it (and is felt).
+- `@isla/life`: active goals are standing facts; vitals count aimed / done / dropped per week.
+- `goals.test.ts`: aim, progress, finish, replay.
+
 ## 0.5.0 — unreleased
 
 Measuring whether she is still living, and facts a mind can read without parsing.

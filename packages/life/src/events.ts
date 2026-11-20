@@ -157,6 +157,26 @@ export interface LifeEventPayloads {
     because: string;
   };
   /**
+   * She set herself something to do across days: finish a book, make a thing, learn about
+   * something, keep a promise to someone. The mind proposes it and the kernel accepts it only
+   * when it rests on facts she was given.
+   */
+  aimed: {
+    goalId: string;
+    kind: "finish" | "make" | "learn" | "do-for";
+    /** Machine-readable object: `read:zhuangzi`, `person:p1:护照`. */
+    about: string;
+    /** In her words: "读完《庄子》". */
+    statement: string;
+    /** How much she wants it, 0..1. */
+    need: number;
+    mind: string;
+  } & Grounding;
+  /** She moved a goal forward. `by` is the event that did it; `amount` is in the goal's own units. */
+  progressed: { goalId: string; by: string; amount: number };
+  achieved: { goalId: string };
+  dropped: { goalId: string; reason: string };
+  /**
    * She wants to say something to someone who is not talking to her right now. The kernel decides
    * that she wants to and why, from what has happened; the host decides how it reaches them, and
    * records what was said with `speak()` against this event.

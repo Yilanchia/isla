@@ -61,6 +61,24 @@ export interface Belief {
   at: number;
 }
 
+/** Something she set out to do across days, and how far she has got. */
+export interface Goal {
+  goalId: string;
+  kind: "finish" | "make" | "learn" | "do-for";
+  about: string;
+  statement: string;
+  need: number;
+  mind: string;
+  aimedAt: number;
+  aimId: string;
+  /** Progress in the goal's own units: passages read, notes written, promises kept. */
+  progress: number;
+  lastProgressAt: number;
+  lastProgressId?: string;
+  status: "active" | "achieved" | "dropped";
+  achievedAt?: number;
+}
+
 /** Something on a shelf she has not got to yet. */
 export interface ShelfItem {
   stockedId: string;
@@ -129,6 +147,7 @@ export interface LifeState {
   lastEndedId?: string;
   tastes: Record<string, Taste>;
   beliefs: Record<string, Belief>;
+  goals: Record<string, Goal>;
   /** Next passage index per book. */
   reading: Record<string, number>;
   /** What the host has put on each shelf and she has not got to yet, oldest first. */
@@ -368,6 +387,63 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
       if (!known) return next;
       return { ...next, people: { ...state.people, [known.personId]: { ...known, bond: event.payload.bond } } };
     }
+    case "aimed": {
+      const payload = event.payload;
+      return {
+        ...next,
+        goals: {
+          ...state.goals,
+          [payload.goalId]: {
+            goalId: payload.goalId,
+            kind: payload.kind,
+            about: payload.about,
+            statement: payload.statement,
+            need: payload.need,
+            mind: payload.mind,
+            aimedAt: event.at,
+            aimId: event.id,
+            progress: 0,
+            lastProgressAt: event.at,
+            status: "active",
+          },
+        },
+      };
+    }
+    case "progressed": {
+      const goal = state.goals[event.payload.goalId];
+      if (!goal || goal.status !== "active") return next;
+      return {
+        ...next,
+        goals: {
+          ...state.goals,
+          [goal.goalId]: {
+            ...goal,
+            progress: goal.progress + event.payload.amount,
+            lastProgressAt: event.at,
+            lastProgressId: event.id,
+          },
+        },
+      };
+    }
+    case "achieved": {
+      const goal = state.goals[event.payload.goalId];
+      if (!goal) return next;
+      return {
+        ...next,
+        goals: {
+          ...state.goals,
+          [goal.goalId]: { ...goal, status: "achieved", achievedAt: event.at },
+        },
+      };
+    }
+    case "dropped": {
+      const goal = state.goals[event.payload.goalId];
+      if (!goal) return next;
+      return {
+        ...next,
+        goals: { ...state.goals, [goal.goalId]: { ...goal, status: "dropped" } },
+      };
+    }
     case "urged":
       // Wanting to talk is not talking: nothing changes until someone answers.
       return next;
@@ -431,6 +507,7 @@ function initial(event: LifeEvent<"born">): LifeState {
     mood: { valence: genome.temperament.baselineValence, arousal: 0 },
     tastes: {},
     beliefs: {},
+    goals: {},
     reading: {},
     shelves: {},
     seen: {},

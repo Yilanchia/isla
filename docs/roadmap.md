@@ -74,7 +74,11 @@ cd evals && npx tsc -p tsconfig.json && node --test dist/*.test.js
 
 验收：全部测试不改一行就通过；`git diff --stat` 里测试文件没有变化。
 
-### 阶段 1：目标与项目（最重要）
+### 阶段 1：目标与项目（进行中：finish 已完成）
+
+> 2026-11-20：`finish` 的闭环已落地——`aimed` / `progressed` / `achieved` / `dropped` 事件、
+> `deliberate` 心智任务、阅读拉力、完成与放弃的感受、vitals 三列、`goals.test.ts`。
+> 待做：`make` / `learn` / `do-for` 三类目标，以及日记里明确提到目标。
 
 让她有跨好几天的、自己的事。日记和自我认识会因此有情节。
 
