@@ -213,6 +213,18 @@ export class InnerMind implements Mind {
       parts.push(belief.payload.statement);
       used.push(fact);
     }
+    // A goal she is still working on gets a line of its own; finishing one is a line too.
+    for (const fact of request.facts) {
+      if (fact.kind !== "goal") continue;
+      const statement = fact.text.replace(/^你正在做：/u, "");
+      parts.push(`「${statement}」这件事还差一点`);
+      used.push(fact);
+    }
+    const done = today.find((fact) => eventOf(fact, "achieved"));
+    if (done) {
+      parts.push("把一件想做的事做完了");
+      used.push(done);
+    }
     // The best moment is the warmest feeling about something she did, not about the weather.
     let best: { fact: Fact; valence: number } | undefined;
     for (const fact of today) {
