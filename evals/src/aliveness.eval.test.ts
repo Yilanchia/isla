@@ -107,5 +107,10 @@ describe("a month", () => {
     }
   });
 
-  it.todo("finishes something she set out to do");
+  it("finishes something she set out to do", async () => {
+    for (const month of Object.values(months)) {
+      const done = (await month).weeks.reduce((sum, week) => sum + week.goalsAchieved, 0);
+      assert.ok(done >= 1, "at least one goal was finished in the month");
+    }
+  });
 });

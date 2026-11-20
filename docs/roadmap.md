@@ -76,10 +76,10 @@ cd evals && npx tsc -p tsconfig.json && node --test dist/*.test.js
 
 ### 阶段 1：目标与项目（进行中：finish 已完成）
 
-> 2026-11-20：`finish` 和 `do-for` 的闭环已落地——`aimed` / `progressed` / `achieved` /
-> `dropped` 事件、`deliberate` 心智任务、阅读拉力、完成与放弃的感受、vitals 三列、
-> `goals.test.ts`（含一个守住的承诺、一篇写出来的东西和日记里的目标）。
-> 待做：`learn` 这一类目标。
+> 2026-11-20：目标机制完成——`finish` / `do-for` / `make` / `learn` 四类都能被提议、推进、
+> 达成或放下，`goals.test.ts` 覆盖四类；“一个月”评测里她独自完成 3 个目标、有文章时 5 个，
+> `finishes something she set out to do` 已从 `todo` 变成正式断言。
+> 仍未达标：第一周后自我认识变化（独自 0 次）、第 4 周日记新句子（0–5%）。这两项留给阶段 2/4。
 
 让她有跨好几天的、自己的事。日记和自我认识会因此有情节。
 
