@@ -250,6 +250,7 @@ async function finishActivity(life: LifeInternals, at: number): Promise<void> {
     });
     await learn(life, at, feeling.about);
     if (feeling.about.includes(":")) await learn(life, at, feeling.about.slice(0, feeling.about.indexOf(":")));
+    await advanceLearn(life, at, ended.id, feeling.about);
   }
   if (activity.activity === "write") {
     const wrote = await writeNote(life, at, ended.id);
@@ -343,6 +344,32 @@ export async function advanceMake(
     payload: { valence: 0.12, arousal: 0.06, reason: "把想写的东西写完了", about: "goal:make" },
   });
   await learn(life, at, "goal:make");
+}
+
+/** Another thing she read about a topic: move the learn goal forward, and finish it at three. */
+export async function advanceLearn(
+  life: LifeInternals,
+  at: number,
+  endedId: string,
+  about: string,
+): Promise<void> {
+  const goal = Object.values(advance(life.current, at).goals).find(
+    (item) => item.status === "active" && item.kind === "learn" && item.about === `learn:${about}`,
+  );
+  if (!goal) return;
+  const progressed = await life.emit(at, {
+    kind: "progressed",
+    causes: [endedId],
+    payload: { goalId: goal.goalId, by: endedId, amount: 1 },
+  });
+  if (goal.progress + 1 < 3) return;
+  await life.emit(at, { kind: "achieved", causes: [progressed.id], payload: { goalId: goal.goalId } });
+  await life.emit(at, {
+    kind: "felt",
+    causes: [progressed.id],
+    payload: { valence: 0.1, arousal: 0.04, reason: "把想弄明白的东西弄明白了一些", about: "goal:learn" },
+  });
+  await learn(life, at, "goal:learn");
 }
 
 /** A promise was closed: the goal it belongs to is done. */
@@ -446,6 +473,21 @@ async function deliberate(life: LifeInternals, at: number): Promise<void> {
       statement: `写一篇关于《${book.title}》的东西`,
       need: 0.5,
       grounds: [started.id],
+    });
+  }
+  // A taste she keeps coming back to is something to look into.
+  for (const [key, taste] of Object.entries(state.tastes)) {
+    if (!key.includes(":") || /^(read|talk|weather|gaze|goal):/u.test(key)) continue;
+    if (taste.count < 2) continue;
+    const about = `learn:${key}`;
+    if (Object.values(state.goals).some((goal) => goal.kind === "learn" && goal.about === about)) continue;
+    const tag = key.slice(key.indexOf(":") + 1);
+    candidates.push({
+      about,
+      kind: "learn",
+      statement: `多了解「${tag}」`,
+      need: 0.5,
+      grounds: taste.evidence.slice(-2),
     });
   }
   if (candidates.length === 0) return;

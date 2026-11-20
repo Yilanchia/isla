@@ -17,7 +17,12 @@ Goals.
 - `@isla/life`: `make` goals. A finished book can become something to write about; three notes
   about it turn into a `made` piece, and the goal is done. `wrote.about` records what a note
   was about.
-- `goals.test.ts`: aim, progress, finish, a kept promise, a piece, the diary line, replay.
+- `@isla/life`: `learn` goals. A taste she keeps returning to becomes "look into X"; three more
+  reads on that topic finish it.
+- `evals`: "finishes something she set out to do" is now an assertion, not a todo. In the month
+  alone she finishes 3 goals; with a stocked shelf, 5.
+- `goals.test.ts`: aim, progress, finish, a kept promise, a piece, looking into a taste, the
+  diary line, replay.
 
 ## 0.5.0 — unreleased
 

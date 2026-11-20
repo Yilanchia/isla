@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ACTIVITIES } from "./activities.js";
+import { ACTIVITIES, shelfActivity } from "./activities.js";
 import { DAY, HOUR } from "./clock.js";
 import { MemoryArchive } from "./events.js";
 import { createGenome, ISLA_GENOME } from "./genome.js";
@@ -117,6 +117,39 @@ describe("goals", () => {
     const made = life.events().filter((event) => event.kind === "made");
     assert.equal(made.length, 1, "she wrote one piece");
     assert.match(made[0]?.payload.title ?? "", /写一篇关于/u);
+    const rebuilt = replay(life.events());
+    assert.ok(rebuilt);
+    assert.deepEqual(rebuilt.goals, life.state.goals);
+  });
+
+  it("looks further into something she keeps coming back to", async () => {
+    const now = { value: Date.parse("2026-11-01T05:30:00+08:00") };
+    const news = shelfActivity({ id: "news", label: "看新闻", verb: "读到" });
+    const life = await Life.open({
+      genome: ISLA_GENOME,
+      world: createRoom({ seed: "learn", books: [] }),
+      archive: new MemoryArchive(),
+      clock: () => now.value,
+      activities: [...ACTIVITIES, news],
+    });
+    for (let index = 0; index < 6; index++) {
+      await life.stock({
+        shelf: "news",
+        item: `a${index}`,
+        title: `AI ${index}`,
+        text: `关于 AI 的第 ${index} 条`,
+        tags: ["AI"],
+        source: "test",
+      });
+    }
+    for (let day = 0; day < 8; day++) {
+      now.value += DAY;
+      await life.advanceTo(now.value);
+    }
+    const aimed = life.events().filter((event) => event.kind === "aimed" && event.payload.kind === "learn");
+    assert.ok(aimed.length > 0, "a taste became a goal");
+    const achieved = life.events().filter((event) => event.kind === "achieved");
+    assert.ok(achieved.length > 0, "she looked into it enough");
     const rebuilt = replay(life.events());
     assert.ok(rebuilt);
     assert.deepEqual(rebuilt.goals, life.state.goals);
