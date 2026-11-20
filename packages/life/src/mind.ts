@@ -2,7 +2,17 @@ import { z } from "zod";
 import { INNER_MIND_NAME, type LifeEvent, type LifeEventKind } from "./events.js";
 import type { Fact } from "./facts.js";
 
-export type MindTask = "reply" | "diary" | "note";
+export type MindTask = "reply" | "diary" | "note" | "deliberate";
+
+/** One thing she could set out to do, offered to the mind to choose from. */
+export interface GoalCandidate {
+  about: string;
+  kind: "finish" | "make" | "learn" | "do-for";
+  statement: string;
+  need: number;
+  /** Fact ids that make this something she could set out to do. */
+  grounds: string[];
+}
 
 export interface MindRequest {
   task: MindTask;
@@ -15,6 +25,8 @@ export interface MindRequest {
   heard?: { text: string; name?: string | undefined };
   /** For diaries: the local date she is writing about. */
   day?: string;
+  /** For deliberate: the goals she could take on tonight. */
+  candidates?: GoalCandidate[];
   signal?: AbortSignal;
 }
 
@@ -22,6 +34,8 @@ export interface MindResponse {
   text: string;
   /** Ids of the facts the text rests on. The kernel keeps only ids it actually offered. */
   grounds: string[];
+  /** For deliberate: which candidate it chose, by `about`. */
+  choice?: string | undefined;
 }
 
 /**
@@ -101,7 +115,16 @@ export class InnerMind implements Mind {
         return this.diary(request);
       case "note":
         return this.note(request);
+      case "deliberate":
+        return this.deliberate(request);
     }
+  }
+
+  /** The plainest possible choice: the first candidate that rests on something real. */
+  private deliberate(request: MindRequest): MindResponse {
+    const first = request.candidates?.[0];
+    if (!first) return { text: "", grounds: [] };
+    return { text: first.statement, grounds: first.grounds, choice: first.about };
   }
 
   private reply(request: MindRequest): MindResponse {
@@ -261,12 +284,14 @@ export class InnerMind implements Mind {
 const mindOutputSchema = z.object({
   text: z.string().trim().min(1).max(2000),
   grounds: z.array(z.string()).max(40).default([]),
+  choice: z.string().trim().max(200).optional(),
 });
 
 const TASK_INSTRUCTIONS: Record<MindTask, string> = {
   reply: "有人在和你说话。用你自己的口吻回一两句话，像聊天，不要写成文章。",
   diary: "这是睡前。写一小段今天的日记，第一人称，几句话就好。",
   note: "你在笔记本上随手写几句此刻的想法。",
+  deliberate: "你在给自己定一件接下来几天要做的小事。从候选里选一件，用一句话说出来。",
 };
 
 /**
@@ -288,7 +313,7 @@ export class ModelMind implements Mind {
       "下面是关于你自己的全部事实，每条前面是它的编号。说到你自己经历过、感受到、做过的事，只能用这些事实；事实里没有的，就说不知道、不记得，不要编。",
       "用户真诚问你是不是真人时，要说明你是 AI。不要用愧疚或冷落挽留对方。",
       TASK_INSTRUCTIONS[request.task],
-      '只输出一个 JSON 对象：{"text": "你要说或写的话", "grounds": ["你用到的事实编号"]}。',
+      '只输出一个 JSON 对象：{"text": "你要说或写的话", "grounds": ["你用到的事实编号"], "choice": "选中的候选编号（只有 deliberate 需要）"}。',
       `事实：\n${factLines}`,
     ].join("\n\n");
     const user =
@@ -296,7 +321,9 @@ export class ModelMind implements Mind {
         ? `${request.heard?.name ?? "对方"}说：${request.heard?.text ?? ""}`
         : request.task === "diary"
           ? `写 ${request.day ?? "今天"} 的日记。`
-          : "写下此刻的想法。";
+          : request.task === "deliberate"
+            ? `候选：\n${(request.candidates ?? []).map((candidate) => `- ${candidate.about}：${candidate.statement}`).join("\n") || "（没有）"}`
+            : "写下此刻的想法。";
     const raw = await this.model.complete({
       system,
       user,

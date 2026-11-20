@@ -5,6 +5,7 @@ import { chaptersOf, episodesOf, type ConsolidationContext } from "./consolidate
 import type { LifeEvent, Material } from "./events.js";
 import { gatherFacts } from "./facts.js";
 import {
+  checkGrounds,
   findLast,
   isEventId,
   lastHeardAt,
@@ -14,6 +15,7 @@ import {
   seqOf,
   type LifeInternals,
 } from "./internal.js";
+import type { GoalCandidate } from "./mind.js";
 import { seededRandom } from "./random.js";
 import { advance, BONDS, dayKey, type Bond, type LifeState } from "./state.js";
 import { compose, reply, writeNote } from "./speech.js";
@@ -192,7 +194,7 @@ async function startActivity(life: LifeInternals, at: number): Promise<void> {
     if (utility === undefined) continue;
     // A little chance, and a little reluctance to do the same small thing twice in a row.
     const repeat = kind.id === state.lastActivity && kind.id !== "read" ? 0.12 : 0;
-    const score = utility - repeat + random() * 0.15;
+    const score = utility - repeat + random() * 0.15 + (kind.id === "read" ? goalPull(state) : 0);
     if (!best || score > best.score) best = { kind, score };
   }
   if (!best) return;
@@ -252,8 +254,126 @@ async function finishActivity(life: LifeInternals, at: number): Promise<void> {
   if (activity.activity === "write") {
     await writeNote(life, at, ended.id);
   }
+  if (activity.activity === "read" && activity.material?.kind === "passage") {
+    await advanceGoal(life, at, ended.id, activity.material.bookId);
+  }
   await feelLonely(life, at);
   if (life.reachOut) await feelUrge(life, at, ended.id, activity.material);
+}
+
+/** A little extra pull toward the activity that would move a goal forward. */
+function goalPull(state: LifeState): number {
+  const active = Object.values(state.goals).filter((goal) => goal.status === "active" && goal.kind === "finish");
+  if (active.length === 0) return 0;
+  return 0.25 * Math.max(...active.map((goal) => goal.need));
+}
+
+/** A passage was read: move the matching goal forward, and finish it when the book is done. */
+async function advanceGoal(life: LifeInternals, at: number, endedId: string, bookId: string): Promise<void> {
+  const goal = Object.values(advance(life.current, at).goals).find(
+    (item) => item.status === "active" && item.about === `read:${bookId}`,
+  );
+  if (!goal) return;
+  const progressed = await life.emit(at, {
+    kind: "progressed",
+    causes: [endedId],
+    payload: { goalId: goal.goalId, by: endedId, amount: 1 },
+  });
+  const state = advance(life.current, at);
+  const book = life.world.books.find((item) => item.id === bookId);
+  if (!book || (state.reading[bookId] ?? 0) < book.passages.length) return;
+  await life.emit(at, {
+    kind: "achieved",
+    causes: [progressed.id],
+    payload: { goalId: goal.goalId },
+  });
+  await life.emit(at, {
+    kind: "felt",
+    causes: [progressed.id],
+    payload: {
+      valence: 0.12,
+      arousal: 0.06,
+      reason: `终于把《${book.title}》读完了`,
+      about: "goal:finish",
+    },
+  });
+  await learn(life, at, "goal:finish");
+}
+
+/**
+ * Before sleep she may take on something for the next days. The kernel offers what is actually
+ * open; the mind picks one and says why; the kernel accepts only a choice that rests on a fact
+ * it was given.
+ */
+async function deliberate(life: LifeInternals, at: number): Promise<void> {
+  const state = advance(life.current, at);
+  const active = Object.values(state.goals).filter((goal) => goal.status === "active");
+  if (active.length >= 3) return;
+  const candidates: GoalCandidate[] = [];
+  for (const book of life.world.books) {
+    const index = state.reading[book.id] ?? 0;
+    if (index >= book.passages.length) continue;
+    if (active.some((goal) => goal.about === `read:${book.id}`)) continue;
+    const started = findLast(
+      life.log,
+      (event) =>
+        event.kind === "activity.started" &&
+        event.payload.material?.kind === "passage" &&
+        event.payload.material.bookId === book.id,
+    );
+    if (!started) continue;
+    candidates.push({
+      about: `read:${book.id}`,
+      kind: "finish",
+      statement: `读完《${book.title}》`,
+      need: 0.5,
+      grounds: [started.id],
+    });
+  }
+  if (candidates.length === 0) return;
+  const facts = gatherFacts(state, life.log, { now: at, lookbackMs: 7 * DAY });
+  const response = await compose(life, at, { task: "deliberate", facts, candidates });
+  const selected = candidates.find((candidate) => candidate.about === response.choice);
+  if (!selected) return;
+  const grounding = checkGrounds(facts, selected.grounds);
+  await life.emit(at, {
+    kind: "aimed",
+    causes: selected.grounds.filter(isEventId),
+    payload: {
+      goalId: `${selected.about}@${dayKey(at, state.genome.timezone)}`,
+      kind: selected.kind,
+      about: selected.about,
+      statement: selected.statement,
+      need: selected.need,
+      mind: response.mind,
+      ...grounding,
+    },
+  });
+}
+
+/** A week without progress: she lets it go, and it is felt, not hidden. */
+async function dropStale(life: LifeInternals, at: number): Promise<void> {
+  const state = advance(life.current, at);
+  for (const goal of Object.values(state.goals)) {
+    if (goal.status !== "active") continue;
+    if (at - goal.aimedAt < 7 * DAY || at - goal.lastProgressAt < 7 * DAY) continue;
+    await life.emit(at, {
+      kind: "dropped",
+      causes: [goal.aimId, ...(goal.lastProgressId ? [goal.lastProgressId] : [])],
+      payload: { goalId: goal.goalId, reason: "一个星期没有进展了" },
+    });
+    await life.emit(at, {
+      kind: "felt",
+      causes: [goal.aimId],
+      payload: {
+        valence: -0.04,
+        arousal: 0.02,
+        reason: `关于「${goal.statement}」，好像就这么放下了`,
+        about: "goal:finish",
+      },
+    });
+    await learn(life, at, "goal:finish");
+  }
 }
 
 /**
@@ -362,6 +482,10 @@ async function goToSleep(life: LifeInternals, at: number, reason: string, nightl
       causes: written.grounds.filter(isEventId),
       payload: { diary: written.text, mind: written.mind, day, ...written.grounding },
     });
+  }
+  if (nightly && !interrupted) {
+    await deliberate(life, at);
+    await dropStale(life, at);
   }
   if (nightly && !interrupted) await consolidate(life, at, day);
   await life.emit(at, { kind: "slept", causes: [state.sinceId], payload: { reason } });

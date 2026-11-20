@@ -29,6 +29,10 @@ export interface DayVitals {
   moodAtBedtime?: number;
   /** She has wanted company for three days or more and still goes to bed in a good mood. */
   unmetButFine: boolean;
+  /** Things she set out to do, finished, or let go. */
+  goalsAimed: number;
+  goalsAchieved: number;
+  goalsDropped: number;
 }
 
 export interface WeekVitals {
@@ -41,6 +45,9 @@ export interface WeekVitals {
   beliefChanges: number;
   firsts: number;
   unmetButFineDays: number;
+  goalsAimed: number;
+  goalsAchieved: number;
+  goalsDropped: number;
 }
 
 export interface Vitals {
@@ -106,6 +113,9 @@ export function measureLife(events: LifeEvent[]): Vitals {
         firsts: 0,
         unmetConnectionDays: 0,
         unmetButFine: false,
+        goalsAimed: 0,
+        goalsAchieved: 0,
+        goalsDropped: 0,
       };
       days.set(key, day);
     }
@@ -135,6 +145,15 @@ export function measureLife(events: LifeEvent[]): Vitals {
       }
       case "belief":
         day.beliefChanges += 1;
+        break;
+      case "aimed":
+        day.goalsAimed += 1;
+        break;
+      case "achieved":
+        day.goalsAchieved += 1;
+        break;
+      case "dropped":
+        day.goalsDropped += 1;
         break;
       case "slept":
         // One bedtime per day counts; a nap or being put back to sleep at night does not.
@@ -167,6 +186,9 @@ export function measureLife(events: LifeEvent[]): Vitals {
       beliefChanges: sum(items, (day) => day.beliefChanges),
       firsts: sum(items, (day) => day.firsts),
       unmetButFineDays: items.filter((day) => day.unmetButFine).length,
+      goalsAimed: sum(items, (day) => day.goalsAimed),
+      goalsAchieved: sum(items, (day) => day.goalsAchieved),
+      goalsDropped: sum(items, (day) => day.goalsDropped),
     })),
   };
 }
@@ -175,7 +197,7 @@ export function measureLife(events: LifeEvent[]): Vitals {
 export function formatVitals(vitals: Vitals): string {
   const rows = vitals.weeks.map(
     (week) =>
-      `${String(week.week).padStart(4)}  ${String(week.days).padStart(4)}  ${week.diaryNovelty.toFixed(2).padStart(6)}  ${week.noteNovelty.toFixed(2).padStart(6)}  ${String(week.beliefChanges).padStart(6)}  ${String(week.firsts).padStart(6)}  ${String(week.unmetButFineDays).padStart(10)}`,
+      `${String(week.week).padStart(4)}  ${String(week.days).padStart(4)}  ${week.diaryNovelty.toFixed(2).padStart(6)}  ${week.noteNovelty.toFixed(2).padStart(6)}  ${String(week.beliefChanges).padStart(6)}  ${String(week.firsts).padStart(6)}  ${String(week.unmetButFineDays).padStart(10)}  ${String(week.goalsAimed).padStart(5)}  ${String(week.goalsAchieved).padStart(6)}  ${String(week.goalsDropped).padStart(7)}`,
   );
-  return [" week  days   diary   notes  belief  firsts  unmet+fine", ...rows].join("\n");
+  return [" week  days   diary   notes  belief  firsts  unmet+fine  aimed  done  dropped", ...rows].join("\n");
 }

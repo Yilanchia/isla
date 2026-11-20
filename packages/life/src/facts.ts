@@ -39,6 +39,7 @@ export type FactKind =
   | "bond"
   | "habit"
   | "self"
+  | "goal"
   | "note"
   | "event"
   | "chapter"
@@ -128,6 +129,14 @@ export function describeEvent(event: LifeEvent, now: number, timezone: string): 
       return `${when} 你想主动找人说话：${event.payload.about}`;
     case "bonded":
       return `${when} 你觉得和对方更${BOND_WORDS[event.payload.bond]}了：${event.payload.because}`;
+    case "aimed":
+      return `${when} 给自己定了一件事：${event.payload.statement}`;
+    case "progressed":
+      return `${when} 朝那件事又走了一步`;
+    case "achieved":
+      return `${when} 把一件事做完了`;
+    case "dropped":
+      return `${when} 放下了一件事：${event.payload.reason}`;
     case "noted":
       return `${when} 你记下（${event.payload.topic}）：${quote(event.payload.text, 60)}${event.payload.done ? "，已经办完" : ""}`;
     case "lapsed":
@@ -242,6 +251,20 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
         kind: "self",
         words: belief.statement,
         text: `你对自己的认识：${belief.statement}`,
+        ...(event ? { event } : {}),
+      });
+    }
+  }
+  // A goal she is still working on is part of how she is right now.
+  if (!options.focusDay) {
+    for (const goal of Object.values(state.goals)) {
+      if (goal.status !== "active") continue;
+      const event = eventById(events, goal.aimId);
+      facts.push({
+        id: goal.aimId,
+        kind: "goal",
+        words: goal.about,
+        text: `你正在做：${goal.statement}`,
         ...(event ? { event } : {}),
       });
     }

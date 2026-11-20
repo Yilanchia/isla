@@ -10,6 +10,8 @@ export interface Composed {
   mind: string;
   grounds: string[];
   grounding: Grounding;
+  /** For `deliberate`: which candidate the mind chose. */
+  choice?: string | undefined;
 }
 
 export interface HeardInput {
@@ -119,7 +121,13 @@ export async function compose(
     response = await mind.compose(full);
   }
   const grounding = checkGrounds(request.facts, response.grounds);
-  return { text: response.text.trim(), mind: mind.name, grounds: grounding.grounds, grounding };
+  return {
+    text: response.text.trim(),
+    mind: mind.name,
+    grounds: grounding.grounds,
+    grounding,
+    ...(response.choice ? { choice: response.choice } : {}),
+  };
 }
 
 export async function limit(
