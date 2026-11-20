@@ -139,6 +139,8 @@ export function describeEvent(event: LifeEvent, now: number, timezone: string): 
       return `${when} 写完了一篇东西：${event.payload.title}`;
     case "dropped":
       return `${when} 放下了一件事：${event.payload.reason}`;
+    case "wanted":
+      return `${when} 想要${event.payload.what}：${event.payload.why}`;
     case "noted":
       return `${when} 你记下（${event.payload.topic}）：${quote(event.payload.text, 60)}${event.payload.done ? "，已经办完" : ""}`;
     case "lapsed":

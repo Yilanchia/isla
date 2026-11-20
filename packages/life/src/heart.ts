@@ -125,6 +125,7 @@ export async function step(life: LifeInternals, at: number): Promise<void> {
     } else if (now.energy < EXHAUSTED_ENERGY) {
       await goToSleep(life, at, "累得睡着了", false);
     } else {
+      await maybeWant(life, at);
       await startActivity(life, at);
     }
   }
@@ -182,6 +183,30 @@ async function seeSky(life: LifeInternals, at: number, kind: string, what: strin
   });
   await learn(life, at, `weather:${kind}`);
   return perceived;
+}
+
+/**
+ * Everything she has is already read. If she still wants something new, she says so once a day:
+ * a small feeling, and a `wanted` the host can answer with `stock()`.
+ */
+async function maybeWant(life: LifeInternals, at: number): Promise<void> {
+  const state = advance(life.current, at);
+  if (state.drives.curiosity < 0.7) return;
+  const timezone = state.genome.timezone;
+  const last = state.tags.wanted;
+  if (last !== undefined && dayKey(last, timezone) === dayKey(at, timezone)) return;
+  const unreadShelf = Object.values(state.shelves).some((items) => items.length > 0);
+  const unreadBook = life.world.books.some((book) => (state.reading[book.id] ?? 0) < book.passages.length);
+  if (unreadShelf || unreadBook) return;
+  await life.emit(at, {
+    kind: "felt",
+    payload: { valence: -0.03, arousal: 0.05, reason: "书都读过好几遍了，想看点新的", tag: "bored" },
+  });
+  await life.emit(at, {
+    kind: "wanted",
+    causes: [],
+    payload: { what: "新的东西", why: "没有没看过的了" },
+  });
 }
 
 async function startActivity(life: LifeInternals, at: number): Promise<void> {
@@ -574,13 +599,17 @@ function urgeFor(
   state: LifeState,
   personId: string,
   material: Material | undefined,
-): { why: "missed" | "share" | "pending"; about: string; causes: string[] } | undefined {
+): { why: "missed" | "share" | "pending" | "seek"; about: string; causes: string[] } | undefined {
   const name = state.people[personId]?.name ?? "对方";
   // Something still to do for them comes first: a butler does not sit on a promise.
   const open = Object.values(state.notes[personId] ?? {}).filter((note) => note.pending);
   if (open.length > 0 && !urgedRecently(life, personId, "pending", state.at, DAY)) {
     const oldest = open.sort((left, right) => left.at - right.at)[0]!;
     return { why: "pending", about: oldest.text, causes: [oldest.eventId] };
+  }
+  // She has run out of new things and wants something; the host may bring it.
+  if (state.tags.wanted !== undefined && !urgedRecently(life, personId, "seek", state.at, DAY)) {
+    return { why: "seek", about: "想找点没看过的东西", causes: [] };
   }
   // Something she just came across that she liked a lot, about a thing they care about.
   if (material?.kind === "item" && !urgedRecently(life, personId, "share", state.at, 6 * HOUR)) {

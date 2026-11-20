@@ -154,6 +154,8 @@ export interface LifeState {
   shelves: Record<string, ShelfItem[]>;
   /** Items she has been through, per shelf, so the host never brings them twice. */
   seen: Record<string, string[]>;
+  /** How many times she has met each stretch of material, for habituation. */
+  exposures: Record<string, number>;
   people: Record<string, Acquaintance>;
   /** What she keeps about each person, by topic: the latest note wins. */
   notes: Record<string, Record<string, Note>>;
@@ -238,9 +240,11 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
         : next;
     case "activity.started": {
       const payload = event.payload;
+      const key = exposureKey(payload.material);
       return {
         ...next,
         lastActivity: payload.activity,
+        ...(key ? { exposures: { ...state.exposures, [key]: (state.exposures[key] ?? 0) + 1 } } : {}),
         activity: {
           startedId: event.id,
           activity: payload.activity,
@@ -445,6 +449,8 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
         goals: { ...state.goals, [goal.goalId]: { ...goal, status: "dropped" } },
       };
     }
+    case "wanted":
+      return { ...next, tags: { ...state.tags, wanted: event.at } };
     case "urged":
       // Wanting to talk is not talking: nothing changes until someone answers.
       return next;
@@ -463,6 +469,14 @@ function apply(state: LifeState, event: LifeEvent): LifeState {
     case "limited":
       return event.payload.tag ? { ...next, tags: { ...state.tags, [event.payload.tag]: event.at } } : next;
   }
+}
+
+/** The key a stretch of material is counted under, for habituation. */
+function exposureKey(material: Material | undefined): string | undefined {
+  if (!material) return undefined;
+  if (material.kind === "passage") return `passage:${material.bookId}:${material.index}`;
+  if (material.kind === "item") return `item:${material.shelf}:${material.item}`;
+  return `view:${material.text}`;
 }
 
 /** She picked one thing up: it leaves the shelf and joins what she has seen. */
@@ -512,6 +526,7 @@ function initial(event: LifeEvent<"born">): LifeState {
     reading: {},
     shelves: {},
     seen: {},
+    exposures: {},
     people: {},
     notes: {},
     pending: [],
