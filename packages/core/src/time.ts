@@ -18,17 +18,37 @@ export interface LocalTime {
   partOfDay: PartOfDay;
 }
 
+/** Formatters are costly to build and every clock reading needs one, so keep one per zone. */
+const formatters = new Map<string, Intl.DateTimeFormat | null>();
+
+function formatterFor(timezone: string): Intl.DateTimeFormat | null {
+  let formatter = formatters.get(timezone);
+  if (formatter === undefined) {
+    try {
+      formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        weekday: "short",
+        hourCycle: "h23",
+      });
+    } catch {
+      formatter = null;
+    }
+    formatters.set(timezone, formatter);
+  }
+  return formatter;
+}
+
 /** Returns the zone if Intl knows it, otherwise the default zone. */
 export function resolveTimezone(timezone: string | undefined, fallback = DEFAULT_TIMEZONE): string {
   if (!timezone) {
     return fallback;
   }
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: timezone });
-    return timezone;
-  } catch {
-    return fallback;
-  }
+  return formatterFor(timezone) ? timezone : fallback;
 }
 
 /**
@@ -48,16 +68,7 @@ export function partOfDay(hour: number): PartOfDay {
 
 export function localTime(now: number, timezone?: string): LocalTime {
   const zone = resolveTimezone(timezone);
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: zone,
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-    weekday: "short",
-    hourCycle: "h23",
-  }).formatToParts(new Date(now));
+  const parts = formatterFor(zone)!.formatToParts(new Date(now));
   const value = (type: Intl.DateTimeFormatPartTypes): string =>
     parts.find((part) => part.type === type)?.value ?? "0";
   const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(value("weekday"));

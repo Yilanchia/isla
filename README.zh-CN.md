@@ -1,4 +1,16 @@
-# Isla · 陪伴核心
+# Isla · 数字生命的种子
+
+> **新方向**：Isla 正在从“陪伴对话运行时”转向**生命内核**（`@isla/life`）：她在对话之间也在生活，一生是一份可追溯的事件日志，她说的每一句关于自己的话都有依据。先读 [定位](POSITIONING.md) 和 [生命内核设计](docs/life-kernel.md)。下面是上一代对话运行时 `@isla/core` 的文档，它会逐步并入新内核。
+
+```bash
+pnpm install
+pnpm --filter @isla/core build && pnpm --filter @isla/life build && pnpm --filter @isla/example-life build
+pnpm --filter @isla/example-life start -- --fast 24   # 她先过完一天，然后你可以和她说话
+```
+
+---
+
+## 上一代：陪伴对话运行时
 
 一个不绑定 UI 的 AI 陪伴运行时：人格、记忆、情绪、回复节奏、主动消息，做成可以嵌进任何程序的库，而不是又一个聊天 App。
 
