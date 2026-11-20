@@ -3,6 +3,7 @@ import type { Fact, GatherOptions } from "./facts.js";
 import { gatherFacts } from "./facts.js";
 import type { Recollection, RecallCue } from "./recall.js";
 import type { LifeEvent } from "./events.js";
+import { advanceDoFor } from "./heart.js";
 import { clipText, findLast, type LifeInternals } from "./internal.js";
 
 export interface StockInput {
@@ -118,7 +119,7 @@ export function note(life: LifeInternals, input: NoteInput): Promise<LifeEvent<"
     }
     const at = Math.max(life.clock(), life.cursor);
     await life.catchUp(at);
-    return life.emit(at, {
+    const noted = await life.emit(at, {
       kind: "noted",
       causes: [source.id],
       payload: {
@@ -130,5 +131,7 @@ export function note(life: LifeInternals, input: NoteInput): Promise<LifeEvent<"
         ...(input.done ? { done: true } : {}),
       },
     });
+    await advanceDoFor(life, at, noted);
+    return noted;
   });
 }
