@@ -8,6 +8,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=.env dist/main.js",
+    "vitals": "node dist/vitals.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

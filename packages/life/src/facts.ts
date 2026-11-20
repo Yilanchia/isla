@@ -9,11 +9,40 @@ import type { Bond, LifeState } from "./state.js";
  *
  * `id` is an event id (`e42`), a state reading (`state:energy`), or her origin
  * (`genome:origin`). A mind may only cite ids it was given; the kernel checks.
+ *
+ * `text` is the sentence for a person or a language model. The other fields carry the same
+ * thing as data, so a mind that is code reads the fact instead of parsing the sentence. They are
+ * optional only because a host may hand back facts it built itself; the kernel always sets them.
  */
 export interface Fact {
   id: string;
   text: string;
+  kind?: FactKind;
+  /** The event the fact was read off, when there is one. */
+  event?: LifeEvent;
+  /** For facts about the past: whole local days before now, 0 being today. */
+  daysAgo?: number;
+  /** For state readings: the reading in plain words, without “你现在”, e.g. 精神还行. */
+  words?: string;
 }
+
+export type FactKind =
+  | "time"
+  | "energy"
+  | "mood"
+  | "doing"
+  | "need"
+  | "origin"
+  | "age"
+  | "rhythm"
+  | "shelf"
+  | "bond"
+  | "habit"
+  | "self"
+  | "note"
+  | "event"
+  | "chapter"
+  | "recollection";
 
 export function energyWords(energy: number): string {
   if (energy > 0.7) return "精神很好";
@@ -30,16 +59,29 @@ export function moodWords(valence: number): string {
   return "心情很低落";
 }
 
-/** "今天 14:30", "昨天 09:05", or a date for anything older. */
-export function whenLabel(at: number, now: number, timezone: string): string {
+/** Whole local days between `at` and `now`: 0 today, 1 yesterday. */
+export function daysAgo(at: number, now: number, timezone: string): number {
   const then = localTime(at, timezone);
   const today = localTime(now, timezone);
   const thenDay = Date.UTC(then.year, then.month - 1, then.day);
   const todayDay = Date.UTC(today.year, today.month - 1, today.day);
-  const days = Math.round((todayDay - thenDay) / DAY);
+  return Math.round((todayDay - thenDay) / DAY);
+}
+
+/** "今天 14:30", "昨天 09:05", or a date for anything older. */
+export function whenLabel(at: number, now: number, timezone: string): string {
+  const days = daysAgo(at, now, timezone);
+  const then = localTime(at, timezone);
   const prefix =
     days === 0 ? "今天" : days === 1 ? "昨天" : days === 2 ? "前天" : `${then.month}月${then.day}日`;
   return `${prefix} ${clockLabel(at, timezone)}`;
+}
+
+/** Event ids are `e<seq>` and the log starts at seq 1, so the lookup is usually direct. */
+function eventById(events: LifeEvent[], id: string): LifeEvent | undefined {
+  const direct = events[Number(id.slice(1)) - 1];
+  if (direct?.id === id) return direct;
+  return findLast(events, (event) => event.id === id);
 }
 
 function quote(text: string, max = 40): string {
@@ -158,30 +200,59 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
   const now = options.now;
   const facts: Fact[] = [];
   const time = localTime(now, timezone);
-  facts.push({ id: "state:time", text: `现在是${time.partOfDay} ${clockLabel(now, timezone)}` });
-  facts.push({ id: "state:energy", text: `你现在${energyWords(state.energy)}` });
-  facts.push({ id: "state:mood", text: `你现在${moodWords(state.mood.valence)}` });
+  facts.push({ id: "state:time", kind: "time", text: `现在是${time.partOfDay} ${clockLabel(now, timezone)}` });
+  const energy = energyWords(state.energy);
+  facts.push({ id: "state:energy", kind: "energy", words: energy, text: `你现在${energy}` });
+  const mood = moodWords(state.mood.valence);
+  facts.push({ id: "state:mood", kind: "mood", words: mood, text: `你现在${mood}` });
   if (state.activity) {
     // Activity labels already read "在窗边看外面"; do not stack another 正在在.
     const doing = state.activity.label.replace(/^在/u, "");
-    facts.push({ id: state.activity.startedId, text: `你此刻正在${doing}` });
+    const started = eventById(events, state.activity.startedId);
+    facts.push({
+      id: state.activity.startedId,
+      kind: "doing",
+      words: doing,
+      text: `你此刻正在${doing}`,
+      ...(started ? { event: started } : {}),
+    });
   }
-  if (state.drives.connection > 0.7) facts.push({ id: "state:connection", text: "你很想有人陪你说说话" });
-  if (state.drives.curiosity > 0.7) facts.push({ id: "state:curiosity", text: "你很想看点新东西" });
-  if (state.drives.expression > 0.7) facts.push({ id: "state:expression", text: "你心里有话想写下来" });
-  if (state.genome.origin) facts.push({ id: "genome:origin", text: `你的来历：${state.genome.origin}` });
+  const needs: Array<[string, string]> = [];
+  if (state.drives.connection > 0.7) needs.push(["connection", "你很想有人陪你说说话"]);
+  if (state.drives.curiosity > 0.7) needs.push(["curiosity", "你很想看点新东西"]);
+  if (state.drives.expression > 0.7) needs.push(["expression", "你心里有话想写下来"]);
+  for (const [drive, text] of needs) facts.push({ id: `state:${drive}`, kind: "need", words: drive, text });
+  if (state.genome.origin) {
+    facts.push({ id: "genome:origin", kind: "origin", words: state.genome.origin, text: `你的来历：${state.genome.origin}` });
+  }
   const days = Math.max(0, Math.floor((now - state.bornAt) / DAY));
-  facts.push({ id: "state:age", text: days === 0 ? "你今天才出生" : `你出生到现在 ${days} 天了` });
+  facts.push({
+    id: "state:age",
+    kind: "age",
+    words: days === 0 ? "今天才出生" : `出生到现在 ${days} 天了`,
+    text: days === 0 ? "你今天才出生" : `你出生到现在 ${days} 天了`,
+  });
   // Looking back on one day, a belief counts as something she found out that day, not as a
   // standing fact; it is picked up below with the rest of the day's events.
   if (!options.focusDay) {
     for (const belief of Object.values(state.beliefs)) {
-      facts.push({ id: belief.eventId, text: `你对自己的认识：${belief.statement}` });
+      const event = eventById(events, belief.eventId);
+      facts.push({
+        id: belief.eventId,
+        kind: "self",
+        words: belief.statement,
+        text: `你对自己的认识：${belief.statement}`,
+        ...(event ? { event } : {}),
+      });
     }
   }
   // The log is in time order, so every lookup below walks back from the end and stops early.
   const { wakeHour, sleepHour } = state.genome.chronotype;
-  facts.push({ id: "state:rhythm", text: `你每天 ${sleepHour}:00 左右睡下，${wakeHour}:00 左右醒来；睡着的时候有人叫你，你会醒` });
+  facts.push({
+    id: "state:rhythm",
+    kind: "rhythm",
+    text: `你每天 ${sleepHour}:00 左右睡下，${wakeHour}:00 左右醒来；睡着的时候有人叫你，你会醒`,
+  });
   // What is waiting on her shelves, newest first, so she can bring it up instead of looking it up.
   if (!options.focusDay) {
     for (const [shelf, items] of Object.entries(state.shelves)) {
@@ -190,6 +261,8 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
       const label = options.shelfLabels?.[shelf] ?? shelf;
       facts.push({
         id: `state:shelf:${shelf}`,
+        kind: "shelf",
+        words: shelf,
         text: `${label}：还有 ${items.length} 样没看，最新的是${titles.join("、")}`,
       });
     }
@@ -201,10 +274,14 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
     const known = Math.floor((now - person.firstHeardAt) / DAY);
     facts.push({
       id: `state:bond:${person.personId}`,
+      kind: "bond",
+      words: BOND_WORDS[person.bond],
       text: `你和${name}：${BOND_WORDS[person.bond]}（认识 ${known} 天，聊过 ${person.talkDays} 天、${person.exchanges} 句）`,
     });
     const usual = usualHours(person.hours);
-    if (usual) facts.push({ id: `state:habit:${person.personId}`, text: `${name}通常${usual}来找你` });
+    if (usual) {
+      facts.push({ id: `state:habit:${person.personId}`, kind: "habit", words: usual, text: `${name}通常${usual}来找你` });
+    }
   }
   // What she keeps about the person in front of her: what is still to be done first, then facts.
   if (options.personId && !options.focusDay) {
@@ -213,9 +290,13 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
       left.pending === right.pending ? right.at - left.at : left.pending ? -1 : 1,
     );
     for (const note of notes.slice(0, options.notesLimit ?? 12)) {
+      const event = eventById(events, note.eventId);
       facts.push({
         id: note.eventId,
+        kind: "note",
+        words: note.text,
         text: note.pending ? `还没办完的事（${name}）：${note.text}` : `你记下的关于${name}的事（${note.topic}）：${note.text}`,
+        ...(event ? { event } : {}),
       });
     }
   }
@@ -226,7 +307,7 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
     const text = describeEvent(event, now, timezone);
     if (!text) return;
     used.add(event.id);
-    facts.push({ id: event.id, text });
+    facts.push({ id: event.id, kind: "event", event, daysAgo: daysAgo(event.at, now, timezone), text });
   };
   if (diary) pushEvent(diary);
   // Further back than her diary, she has the last week and the last month as one line each.
@@ -239,6 +320,9 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
       const summary = chapter.payload.summary;
       facts.push({
         id: chapter.id,
+        kind: "chapter",
+        event: chapter,
+        daysAgo: daysAgo(chapter.at, now, timezone),
         text: `${span === "week" ? "最近一周" : "最近一个月"}（${chapter.payload.label}）：${summary.length > 120 ? `${summary.slice(0, 120)}…` : summary}`,
       });
     }
@@ -288,7 +372,14 @@ export function gatherFacts(state: LifeState, events: LifeEvent[], options: Gath
   for (const recollection of recollections.sort((left, right) => left.at - right.at)) {
     if (used.has(recollection.id)) continue;
     used.add(recollection.id);
-    facts.push({ id: recollection.id, text: `你想起：${recollection.text}` });
+    const event = eventById(events, recollection.id);
+    facts.push({
+      id: recollection.id,
+      kind: "recollection",
+      text: `你想起：${recollection.text}`,
+      daysAgo: daysAgo(recollection.at, now, timezone),
+      ...(event ? { event } : {}),
+    });
   }
   return facts;
 }
