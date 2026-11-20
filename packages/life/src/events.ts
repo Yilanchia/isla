@@ -111,7 +111,14 @@ export interface LifeEventPayloads {
     /** Marks feelings the kernel must not repeat within a day, e.g. "lonely". */
     tag?: string;
   };
-  wrote: { text: string; mind: string } & Grounding;
+  wrote: {
+    text: string;
+    mind: string;
+    /** What it is about, e.g. `read:zhuangzi` or `item:news:42`; what a `make` goal counts. */
+    about?: string;
+  } & Grounding;
+  /** A finished piece: the notes she wrote about one thing, put together. */
+  made: { title: string; text: string; about: string; mind: string } & Grounding;
   reflected: {
     diary: string;
     mind: string;

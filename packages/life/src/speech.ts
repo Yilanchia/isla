@@ -2,7 +2,7 @@ import { advance, dayKey } from "./state.js";
 import type { Grounding, LifeEvent } from "./events.js";
 import { FREE_MINDS } from "./events.js";
 import { gatherFacts } from "./facts.js";
-import { checkGrounds, errorText, isEventId, type LifeInternals } from "./internal.js";
+import { checkGrounds, errorText, findLast, isEventId, type LifeInternals } from "./internal.js";
 import type { MindRequest } from "./mind.js";
 
 export interface Composed {
@@ -77,14 +77,28 @@ export async function reply(life: LifeInternals, at: number, heard: LifeEvent<"h
   });
 }
 
-export async function writeNote(life: LifeInternals, at: number, endedId: string): Promise<void> {
+export async function writeNote(life: LifeInternals, at: number, endedId: string): Promise<LifeEvent<"wrote">> {
   const state = advance(life.current, at);
   const facts = gatherFacts(state, life.log, { now: at, lookbackMs: 8 * 60 * 60 * 1000, limit: 24 });
   const written = await compose(life, at, { task: "note", facts });
-  await life.emit(at, {
+  // What she was reading when she sat down to write; a `make` goal counts notes about it.
+  const reading = findLast(
+    life.log,
+    (event) =>
+      event.kind === "activity.started" && Boolean(event.payload.material) && event.payload.material?.kind !== "view",
+    60,
+  );
+  const material = reading?.kind === "activity.started" ? reading.payload.material : undefined;
+  const about =
+    material?.kind === "passage"
+      ? `read:${material.bookId}`
+      : material?.kind === "item"
+        ? `item:${material.shelf}:${material.item}`
+        : undefined;
+  return life.emit(at, {
     kind: "wrote",
     causes: [endedId, ...written.grounds.filter(isEventId)],
-    payload: { text: written.text, mind: written.mind, ...written.grounding },
+    payload: { text: written.text, mind: written.mind, ...(about ? { about } : {}), ...written.grounding },
   });
 }
 
